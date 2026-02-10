@@ -99,6 +99,7 @@ const GoogleSync = {
                 periodTimes: window.periodTimes || periodTimes,
                 scoreReasons: window.scoreReasons || scoreReasons,
                 teachingResources: window.teachingResources || teachingResources,
+                modules: window.modules || modules, // Sync Modules Order
                 lastActiveDate: new Date().toDateString() // Add Date to Sync
             };
 
@@ -203,6 +204,7 @@ const GoogleSync = {
                 if (data.periodTimes) window.periodTimes = data.periodTimes;
                 if (data.scoreReasons) window.scoreReasons = data.scoreReasons;
                 if (data.teachingResources) window.teachingResources = data.teachingResources;
+                if (data.modules) window.modules = data.modules; // Load Modules Order
 
                 // Save to local storage without triggering push
                 saveData(true);
