@@ -160,6 +160,8 @@ window.onload = () => {
             setTimeout(() => loader.remove(), 500);
         }
     }, 600);
+
+    initDrawing();
 };
 
 
@@ -3844,3 +3846,498 @@ function runPolygon() {
     }
     executionLoop();
 }
+
+// --- Drawing System Global Logic ---
+let isDrawingMode = false;
+let isDrawing = false;
+let drawCtx;
+let drawLastX = 0;
+let drawLastY = 0;
+let drawStartX = 0;
+let drawStartY = 0;
+let drawColor = '#ef4444';
+let currentTool = 'pen';
+let brushSize = 4;
+let canvasSnapshot = null;
+let drawingHistory = [];
+let historyStep = -1;
+
+function saveState() {
+    if (!drawCtx) return;
+    historyStep++;
+    if (historyStep < drawingHistory.length) {
+        drawingHistory.length = historyStep;
+    }
+    drawingHistory.push(drawCtx.getImageData(0, 0, drawCtx.canvas.width, drawCtx.canvas.height));
+    if (drawingHistory.length > 20) {
+        drawingHistory.shift();
+        historyStep--;
+    }
+}
+
+function undoLastAction() {
+    if (historyStep > 0) {
+        historyStep--;
+        const imgData = drawingHistory[historyStep];
+        drawCtx.putImageData(imgData, 0, 0);
+    }
+}
+
+function initDrawing() {
+    const canvas = document.getElementById('mainCanvas');
+    if (!canvas) return;
+
+    drawCtx = canvas.getContext('2d');
+    resizeCanvas();
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Mouse Events
+    canvas.addEventListener('mousedown', startAction);
+    canvas.addEventListener('mousemove', handleAction);
+    canvas.addEventListener('mouseup', stopAction);
+    canvas.addEventListener('mouseout', stopAction);
+
+    // Touch Events
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.cancelable) e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.cancelable) e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+        const mouseEvent = new MouseEvent('mouseup', {});
+        canvas.dispatchEvent(mouseEvent);
+    });
+
+    // Initial color active state
+    setDrawColor(drawColor);
+
+    // Initialize history
+    saveState();
+
+    // Undo Shortcut
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'z') {
+            e.preventDefault();
+            undoLastAction();
+        }
+    });
+}
+
+function resizeCanvas() {
+    const canvas = document.getElementById('mainCanvas');
+    if (!canvas) return;
+
+    // Save current content if needed? For now, we accept clear on resize or need a sophisticated buffer.
+    // Simple approach: set dimensions. content is cleared.
+    // To preserve: create temp canvas.
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, 0, 0);
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Restore
+    drawCtx.drawImage(tempCanvas, 0, 0);
+}
+
+function toggleDrawingMode() {
+    const layer = document.getElementById('drawingLayer');
+    const toolbar = document.getElementById('drawingToolbar');
+    const fab = document.getElementById('fabDrawing');
+
+    isDrawingMode = !isDrawingMode;
+
+    if (isDrawingMode) {
+        layer.classList.remove('hidden');
+        // Force reflow
+        void layer.offsetWidth;
+        layer.classList.remove('pointer-events-none');
+
+        // Show Toolbar
+        setTimeout(() => {
+            toolbar.classList.remove('translate-y-32', 'opacity-0');
+        }, 50);
+
+        fab.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
+
+        if (!drawCtx) initDrawing();
+    } else {
+        toolbar.classList.add('translate-y-32', 'opacity-0');
+        fab.classList.remove('scale-0', 'opacity-0', 'pointer-events-none');
+
+        // Hide layer after transition
+        setTimeout(() => {
+            layer.classList.add('hidden');
+            layer.classList.add('pointer-events-none');
+        }, 300);
+    }
+}
+
+function startAction(e) {
+    if (!isDrawingMode) return;
+
+    if (currentTool === 'text') {
+        createTextInput(e.clientX, e.clientY);
+        return;
+    }
+
+    isDrawing = true;
+    [drawStartX, drawStartY] = [e.clientX, e.clientY];
+    [drawLastX, drawLastY] = [e.clientX, e.clientY];
+
+    // Save canvas state for shape preview
+    if (currentTool === 'line' || currentTool === 'rect') {
+        canvasSnapshot = drawCtx.getImageData(0, 0, drawCtx.canvas.width, drawCtx.canvas.height);
+    }
+
+    if (currentTool === 'pen' || currentTool === 'eraser') {
+        drawCtx.beginPath();
+        drawCtx.moveTo(drawLastX, drawLastY);
+    }
+}
+
+function handleAction(e) {
+    if (!isDrawing || !isDrawingMode) return;
+
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+
+    if (currentTool === 'eraser') {
+        drawCtx.globalCompositeOperation = 'destination-out';
+        drawCtx.lineWidth = brushSize * 4; // Eraser often needs to be bigger
+        drawCtx.lineTo(currentX, currentY);
+        drawCtx.stroke();
+        [drawLastX, drawLastY] = [currentX, currentY];
+    } else if (currentTool === 'pen') {
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.strokeStyle = drawColor;
+        drawCtx.lineWidth = brushSize;
+        drawCtx.lineTo(currentX, currentY);
+        drawCtx.stroke();
+        [drawLastX, drawLastY] = [currentX, currentY];
+    } else if (currentTool === 'line') {
+        // Restore then draw
+        drawCtx.putImageData(canvasSnapshot, 0, 0);
+        drawCtx.beginPath();
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.strokeStyle = drawColor;
+        drawCtx.lineWidth = brushSize;
+        drawCtx.moveTo(drawStartX, drawStartY);
+        drawCtx.lineTo(currentX, currentY);
+        drawCtx.stroke();
+    } else if (currentTool === 'rect') {
+        // Restore then draw
+        drawCtx.putImageData(canvasSnapshot, 0, 0);
+        drawCtx.beginPath();
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.strokeStyle = drawColor;
+        drawCtx.lineWidth = brushSize;
+        const w = currentX - drawStartX;
+        const h = currentY - drawStartY;
+        drawCtx.strokeRect(drawStartX, drawStartY, w, h);
+    }
+}
+
+function stopAction() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    drawCtx.beginPath(); // Reset path
+    canvasSnapshot = null;
+    saveState();
+}
+
+function createTextInputOld(x, y) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.style.position = 'fixed';
+    input.style.left = x + 'px';
+    input.style.top = y + 'px';
+    input.style.zIndex = '10000';
+    input.style.background = 'transparent';
+    input.style.border = 'none';
+    input.style.outline = 'none';
+    input.style.color = drawColor;
+    input.style.fontSize = '24px';
+    input.style.fontFamily = 'sans-serif';
+    input.style.fontWeight = 'bold';
+    input.style.minWidth = '100px';
+    input.style.transform = 'translateY(-50%)';
+    input.placeholder = 'Type here...';
+
+    document.body.appendChild(input);
+    input.focus();
+
+    const finishText = () => {
+        const text = input.value;
+        if (text) {
+            drawCtx.globalCompositeOperation = 'source-over';
+            drawCtx.font = 'bold 24px sans-serif';
+            drawCtx.fillStyle = drawColor;
+            drawCtx.fillText(text, x, y + 8); // Adjust baseline slightly
+        }
+        input.remove();
+    };
+
+    input.addEventListener('blur', finishText);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            finishText();
+        }
+    });
+}
+
+
+function createTextInput(x, y) {
+    if (document.getElementById('drawTextInput')) return;
+
+    const input = document.createElement('textarea');
+    input.id = 'drawTextInput';
+    input.type = 'text'; // textarea doesn't need type, but keep it for now or remove? Remove.
+    input.style.position = 'fixed';
+    input.style.left = x + 'px';
+    input.style.top = y + 'px';
+    input.style.zIndex = '10000';
+    input.style.background = 'rgba(0,0,0,0.5)';
+    input.style.border = '1px solid ' + drawColor;
+    input.style.borderRadius = '4px';
+    input.style.outline = 'none';
+    input.style.color = drawColor;
+    const currentFontSize = Math.max(12, typeof brushSize !== 'undefined' ? brushSize * 4 : 24);
+    input.style.fontSize = currentFontSize + 'px';
+    input.style.lineHeight = '1.2';
+    input.style.fontFamily = 'monospace';
+    input.style.fontWeight = 'bold';
+    input.style.minWidth = '200px';
+    input.style.minHeight = (currentFontSize * 1.5) + 'px';
+    input.style.padding = '4px 8px';
+    // input.style.transform = 'translateY(-50%)'; // Prevent shifting up when height grows
+    input.style.overflow = 'hidden';
+    input.style.resize = 'both';
+    input.placeholder = 'Type here...';
+
+    // Auto-resize logic
+    input.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    document.body.appendChild(input);
+    setTimeout(() => input.focus(), 10);
+
+    let isComposing = false;
+    let isFinalized = false;
+
+    const finishText = () => {
+        if (isFinalized || isComposing) return;
+        isFinalized = true;
+
+        const text = input.value;
+        if (text) {
+            drawCtx.globalCompositeOperation = 'source-over';
+            drawCtx.font = 'bold ' + currentFontSize + 'px monospace';
+            drawCtx.fillStyle = drawColor;
+            drawCtx.textBaseline = 'top';
+
+            // Draw text line by line
+            const lines = text.split('\n');
+            const lineHeight = currentFontSize * 1.2;
+
+            // Get input position for accurate drawing
+            const rect = input.getBoundingClientRect();
+            // Adjust for padding
+            const drawX = rect.left + 8; // padding-left
+            const drawY = rect.top + 4;  // padding-top (approx)
+
+            lines.forEach((line, index) => {
+                drawCtx.fillText(line, drawX, drawY + (index * lineHeight));
+            });
+            saveState();
+        }
+        input.remove();
+    };
+
+    // IME Support (Chinese, Japanese, etc.)
+    input.addEventListener('compositionstart', () => { isComposing = true; });
+    input.addEventListener('compositionend', () => { isComposing = false; });
+
+    input.addEventListener('blur', () => {
+        // Small delay to allow click events to process if clicking elsewhere
+        setTimeout(finishText, 100);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            input.value = '';
+            isFinalized = true; // Just remove without drawing
+            input.remove();
+        }
+    });
+}
+
+function setTool(toolName) {
+    currentTool = toolName;
+    updateToolbarUI();
+}
+
+function setDrawColor(color) {
+    drawColor = color;
+    // If we pick a color while using eraser, switch back to last tool or pen
+    if (currentTool === 'eraser') {
+        currentTool = 'pen';
+    }
+    updateToolbarUI();
+}
+
+function updateToolbarUI() {
+    // Colors
+    document.querySelectorAll('.color-btn').forEach(btn => {
+        const c = btn.dataset.color;
+        if (c === drawColor && currentTool !== 'eraser') {
+            btn.classList.add('ring-offset-2', 'ring-offset-slate-900', 'ring-white');
+            btn.classList.remove('ring-transparent');
+        } else {
+            btn.classList.remove('ring-offset-2', 'ring-offset-slate-900', 'ring-white');
+            btn.classList.add('ring-transparent');
+        }
+    });
+
+    // Tools
+    const tools = ['pen', 'line', 'rect', 'text', 'eraser'];
+    tools.forEach(t => {
+        const btnIdx = t === 'pen' ? 'btnToolPen' :
+            t === 'line' ? 'btnToolLine' :
+                t === 'rect' ? 'btnToolRect' :
+                    t === 'text' ? 'btnToolText' : 'btnToolEraser';
+
+        const btn = document.getElementById(btnIdx);
+        if (btn) {
+            if (currentTool === t) {
+                btn.classList.add('text-indigo-400', 'bg-slate-800', 'ring-1', 'ring-indigo-500');
+                btn.classList.remove('text-slate-400');
+            } else {
+                btn.classList.remove('text-indigo-400', 'bg-slate-800', 'ring-1', 'ring-indigo-500');
+                btn.classList.add('text-slate-400');
+            }
+        }
+    });
+}
+
+function toggleToolbarCollapse() {
+    const content = document.getElementById('toolbarContent');
+    const btn = document.getElementById('btnCollapseToolbar');
+
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        content.classList.add('flex');
+        btn.title = '縮小工具列';
+        btn.innerHTML = '<i data-lucide="chevron-down" class="w-6 h-6"></i>';
+    } else {
+        content.classList.add('hidden');
+        content.classList.remove('flex');
+        btn.title = '放大工具列';
+        btn.innerHTML = '<i data-lucide="chevron-up" class="w-6 h-6"></i>';
+    }
+    lucide.createIcons();
+}
+
+function clearCanvas() {
+    if (confirm('確定要清除所有筆跡嗎？')) {
+        const canvas = document.getElementById('mainCanvas');
+        drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+        saveState();
+    }
+}
+function updateBrushSize(size) { brushSize = parseInt(size); }
+
+let isChalkboardMode = false;
+function toggleChalkboard() {
+    const canvas = document.getElementById('mainCanvas');
+    isChalkboardMode = !isChalkboardMode;
+
+    if (isChalkboardMode) {
+        let bg = document.getElementById('chalkboardBg');
+        if (!bg) {
+            bg = document.createElement('div');
+            bg.id = 'chalkboardBg';
+            bg.classList.add('absolute', 'inset-0', 'bg-gray-900', '-z-10');
+            canvas.parentNode.insertBefore(bg, canvas);
+        }
+        bg.classList.remove('hidden');
+
+    } else {
+        const bg = document.getElementById('chalkboardBg');
+        if (bg) bg.classList.add('hidden');
+    }
+
+    const btn = document.getElementById('btnChalkboard');
+    if (btn) {
+        if (isChalkboardMode) {
+            btn.classList.add('bg-slate-700', 'text-white', 'ring-1', 'ring-white/20');
+            btn.classList.remove('text-slate-400');
+        } else {
+            btn.classList.remove('bg-slate-700', 'text-white', 'ring-1', 'ring-white/20');
+            btn.classList.add('text-slate-400');
+        }
+    }
+}
+
+function minimizeFab(e) {
+    if (e) {
+        e.stopPropagation(); // prevent toggling drawing mode
+    }
+    const fabContainer = document.getElementById('fabDrawingContainer');
+    const fabHandle = document.getElementById('fabMinimizedHandle');
+
+    // Hide large FAB
+    if (fabContainer) {
+        fabContainer.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
+    }
+    // Show small handle
+    if (fabHandle) {
+        fabHandle.classList.remove('hidden');
+        // Small delay for fluid transition
+        setTimeout(() => {
+            fabHandle.classList.remove('translate-x-full');
+        }, 50);
+    }
+}
+
+function restoreFab() {
+    const fabContainer = document.getElementById('fabDrawingContainer');
+    const fabHandle = document.getElementById('fabMinimizedHandle');
+
+    // Hide small handle
+    if (fabHandle) {
+        fabHandle.classList.add('translate-x-full');
+        setTimeout(() => {
+            fabHandle.classList.add('hidden');
+        }, 300);
+    }
+    // Show large FAB
+    if (fabContainer) {
+        fabContainer.classList.remove('scale-0', 'opacity-0', 'pointer-events-none');
+    }
+}
+
