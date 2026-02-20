@@ -34,7 +34,7 @@ window.teachingResources = teachingResources;
 // New: Dynamic Modules List
 var defaultModules = [
     { id: 'seating', title: '座位點名', desc: '管理學生位置與出缺席', icon: 'users', color: 'sky', action: "switchTab('seating')" },
-    { id: 'algo', title: '演算法工具', desc: '排序與搜尋視覺化教材', icon: 'code-2', color: 'emerald', action: "switchTab('algo')" },
+    { id: 'textbook', title: '教材檔案', desc: '課程教科書與講義', icon: 'book-open', color: 'emerald', action: "switchTab('textbook')" },
     { id: 'timer', title: '課堂計時器', desc: '懸浮式倒數計時工具', icon: 'timer', color: 'orange', action: "toggleTimerModal()" },
     { id: 'leaderboard', title: '積分排行榜', desc: '查看學生學期積分排名', icon: 'trophy', color: 'pink', action: "switchTab('leaderboard')" },
     { id: 'keyboard', title: '互動鍵盤', desc: '示範常用快捷鍵操作', icon: 'keyboard', color: 'violet', action: "switchTab('keyboard')" },
@@ -52,6 +52,10 @@ let selectedIndices = new Set();
 let lastWinnerIndex = null;
 let lastCheckedDateStr = new Date().toDateString();
 
+// Textbook Files Logic
+// Textbook Links Logic (Synced via localStorage/Google Sheets)
+let textbookLinks = [];
+
 window.onload = () => {
     const saved = localStorage.getItem('it-class-master-v4');
     if (saved) {
@@ -62,6 +66,7 @@ window.onload = () => {
         periodTimes = parsed.periodTimes || periodTimes;
         scoreReasons = parsed.scoreReasons || scoreReasons;
         scoreReasons = parsed.scoreReasons || scoreReasons;
+        teachingResources = parsed.teachingResources || teachingResources;
         teachingResources = parsed.teachingResources || teachingResources;
         // Load Modules
         if (parsed.modules && Array.isArray(parsed.modules) && parsed.modules.length > 0) {
@@ -75,6 +80,10 @@ window.onload = () => {
             });
         } else {
             modules = JSON.parse(JSON.stringify(defaultModules));
+        }
+
+        if (parsed.textbookLinks) {
+            textbookLinks = parsed.textbookLinks;
         }
 
         if (parsed.currentClass && classesData[parsed.currentClass]) {
@@ -237,7 +246,7 @@ function saveData(skipPush = false) {
         periodTimes: periodTimes,
         scoreReasons: scoreReasons,
         teachingResources: teachingResources,
-        modules: modules, // Save Modules Order
+        textbookLinks: textbookLinks, // Save Textbook Links
         currentClass: currentClass,
         lastActiveDate: new Date().toDateString()
     };
@@ -258,6 +267,14 @@ function saveData(skipPush = false) {
 function switchTab(tabId) {
     currentTab = tabId;
 
+    // Mobile: Auto-close menu on selection
+    if (window.innerWidth < 768) {
+        const navContent = document.getElementById('navContent');
+        if (navContent && !navContent.classList.contains('hidden')) {
+            navContent.classList.add('hidden');
+        }
+    }
+
     // Update nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
         if (btn.id === `btn-${tabId}`) {
@@ -270,7 +287,7 @@ function switchTab(tabId) {
     });
 
     // Update sections
-    const sections = ['dashboard', 'seating', 'records', 'lottery', 'algo', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon'];
+    const sections = ['dashboard', 'seating', 'records', 'lottery', 'textbook', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon'];
 
     // 1. First hide ALL sections to ensure clean state
     sections.forEach(s => {
@@ -290,18 +307,24 @@ function switchTab(tabId) {
                 renderResources();
             }
             if (tabId === 'seating') renderSeating();
-            if (tabId === 'seating') renderSeating();
             if (tabId === 'records') renderRecordsPage();
-            if (tabId === 'leaderboard') renderLeaderboard();
             if (tabId === 'leaderboard') renderLeaderboard();
             if (tabId === 'settings') renderSettingsPage();
             if (tabId === 'polygon') initPolygon();
+            if (tabId === 'textbook') renderTextbookGrid();
         } catch (e) {
             console.error(`Error initializing ${tabId}:`, e);
         }
     }
 
     lucide.createIcons();
+}
+
+function toggleMobileMenu() {
+    const navContent = document.getElementById('navContent');
+    if (navContent) {
+        navContent.classList.toggle('hidden');
+    }
 }
 
 function initTimetableEditor() {
@@ -1484,67 +1507,197 @@ function startSlotMachine() {
         const slowDownThreshold = 25;
 
         if (stepsRemaining < slowDownThreshold) {
-            // Exponential-ish slowdown
-            // Factor increases as stepsRemaining decreases
-            const factor = (slowDownThreshold - stepsRemaining);
-            // example: at 24 left, factor 1. delay += 10. = 40ms.
-            // at 1 left, factor 24. delay += 240. = 270ms.
-            delay += factor * 12;
+            // Quadratic easing for slowdown
+            // From 30ms to ~300ms
+            const factor = (slowDownThreshold - stepsRemaining) / slowDownThreshold;
+            delay = 30 + (factor * factor * 300);
         }
 
         setTimeout(run, delay);
     };
 
     const finish = () => {
-        // Ensure final display is exact (string match)
+        // Final Display of Seat Number
         const seatStr = String(winner.seatNo).padStart(2, '0');
         slot1.innerText = seatStr[0];
         slot2.innerText = seatStr[1];
 
-        // "Lock In" Animation
-        slot1.classList.add('animate-bounce');
-        slot2.classList.add('animate-bounce');
-        SoundFX.playFanfare(); // Victory Sound immediately upon locking
+        // Random Gradient
+        const gradients = [
+            "from-pink-500 via-rose-500 to-yellow-500",
+            "from-sky-400 via-blue-500 to-indigo-500",
+            "from-green-400 via-emerald-500 to-teal-500",
+            "from-purple-500 via-violet-500 to-fuchsia-500",
+            "from-orange-400 via-amber-500 to-red-500"
+        ];
+        const randGrad = gradients[Math.floor(Math.random() * gradients.length)];
 
-        // Reveal Name after slight pause
+        // Display Winner Name (Seat + Name)
+        nameDisp.innerText = `${winner.seatNo} ${winner.name}`;
+        nameDisp.className = `text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r ${randGrad} opacity-100 scale-110 blur-0 drop-shadow-[0_0_30px_rgba(255,255,250,0.4)] transition-all duration-500 animate-in zoom-in spin-in-3`;
+
+        // Effects
+        fireConfetti(slot1);
+        fireConfetti(slot2);
+
+        // Update History
+        lotteryHistory.push({ seatNo: winner.seatNo, name: winner.name });
+        updateLotteryHistory();
+
+        // Show Action Buttons
+        if (leftBtn) leftBtn.classList.remove('hidden');
+        if (rightBtn) rightBtn.classList.remove('hidden');
+
+        // Unlock Spin
+        btnSpin.disabled = false;
+        btnSpin.style.pointerEvents = 'auto';
+
         setTimeout(() => {
-            nameDisp.innerText = winner.name;
-
-            // Random Gradient
-            const gradients = [
-                "from-pink-500 via-rose-500 to-yellow-500",
-                "from-sky-400 via-blue-500 to-indigo-500",
-                "from-green-400 via-emerald-500 to-teal-500",
-                "from-purple-500 via-violet-500 to-fuchsia-500",
-                "from-orange-400 via-amber-500 to-red-500"
-            ];
-            const randGrad = gradients[Math.floor(Math.random() * gradients.length)];
-            nameDisp.className = `text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r ${randGrad} opacity-100 scale-110 blur-0 drop-shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all duration-500 animate-in zoom-in spin-in-3`;
-
-            // Effects
-            fireConfetti(slot1);
-            fireConfetti(slot2);
-
-            // Update History
-            lotteryHistory.push({ seatNo: winner.seatNo, name: winner.name });
-            updateLotteryHistory();
-
-            // Show Action Buttons
-            if (leftBtn) leftBtn.classList.remove('hidden');
-            if (rightBtn) rightBtn.classList.remove('hidden');
-
-            // Unlock Spin
-            btnSpin.disabled = false;
-            btnSpin.style.pointerEvents = 'auto';
-
-            setTimeout(() => {
-                slot1.classList.remove('animate-bounce');
-                slot2.classList.remove('animate-bounce');
-            }, 1000);
-        }, 300);
+            slot1.classList.remove('animate-bounce');
+            slot2.classList.remove('animate-bounce');
+        }, 1000);
     };
 
     run();
+}
+
+// --- Textbook Links Logic ---
+
+function openAddTextbookModal() {
+    const name = prompt("請輸入教材名稱：");
+    if (!name) return;
+    const url = prompt("請輸入 PDF 連結 (Google Drive 或其他 URL)：");
+    if (!url) return;
+
+    textbookLinks.push({
+        id: Date.now(),
+        name: name,
+        url: url,
+        order: textbookLinks.length
+    });
+
+    saveData(); // Syncs to cloud
+    renderTextbookGrid();
+}
+
+function renderTextbookGrid() {
+    const grid = document.getElementById('textbookGrid');
+    if (!grid) return;
+
+    // "Add" card is always first and fixed
+    let html = `
+        <div onclick="openAddTextbookModal()" class="glass-panel p-6 flex flex-col items-center justify-center gap-4 text-center min-h-[200px] border-2 border-dashed border-slate-700/50 hover:border-sky-500/50 hover:bg-slate-800/50 transition-all cursor-pointer group order-first">
+            <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors shadow-inner">
+                <i data-lucide="plus" class="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition-colors"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-400 group-hover:text-sky-400 transition-colors">新增教材連結</h3>
+                <p class="text-xs text-slate-500 mt-1">支援網址連結</p>
+            </div>
+        </div>
+    `;
+
+    textbookLinks.forEach((item, index) => {
+        html += `
+            <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
+                <div class="h-40 bg-slate-800 relative flex items-center justify-center overflow-hidden cursor-move">
+                    <i data-lucide="link" class="w-16 h-16 text-indigo-400/20 group-hover:scale-110 transition-transform duration-500"></i>
+                     <div class="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-60"></div>
+                     <span class="absolute bottom-2 right-2 text-[10px] font-mono bg-slate-900/80 px-2 py-0.5 rounded text-indigo-300 border border-indigo-500/30">LINK</span>
+                     <button onclick="deleteTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-rose-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="刪除連結">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                     </button>
+                </div>
+                <div class="p-4 flex-1 flex flex-col">
+                    <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
+                    <p class="text-xs text-slate-500 mb-4 truncate text-slate-600">${item.url}</p>
+                    <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="mt-auto w-full bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-400 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 border border-slate-700 group-hover:border-indigo-500/50">
+                        <i data-lucide="eye" class="w-4 h-4"></i> 預覽
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    grid.innerHTML = html;
+    lucide.createIcons();
+}
+
+// Drag and Drop Logic for Textbook Links
+let draggedFileIndex = null;
+
+function dragStart(event, index) {
+    draggedFileIndex = index;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/html', event.target.innerHTML);
+    event.target.classList.add('opacity-50');
+}
+
+function dragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function filesDrop(event, targetIndex) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    const files = document.querySelectorAll('.draggable-file');
+    files.forEach(file => file.classList.remove('opacity-50'));
+
+    if (draggedFileIndex !== null && draggedFileIndex !== targetIndex) {
+        // Reorder array
+        const item = textbookLinks.splice(draggedFileIndex, 1)[0];
+        textbookLinks.splice(targetIndex, 0, item);
+
+        // Update functionality 'order'
+        textbookLinks.forEach((f, i) => f.order = i);
+
+        saveData(); // Sync new order
+        renderTextbookGrid();
+    }
+    return false;
+}
+
+function deleteTextbook(index) {
+    if (!confirm('確定要刪除這個教材連結嗎？')) return;
+    textbookLinks.splice(index, 1);
+    saveData();
+    renderTextbookGrid();
+}
+
+function previewTextbookLink(url, name) {
+    let finalUrl = url;
+    // Basic Google Drive viewer support for preview
+    if (url.includes('drive.google.com') && (url.includes('/view') || url.includes('/file/d/'))) {
+        // Convert view link to preview link to avoid headers if possible, 
+        // but generally just embedding the preview URL works best.
+        // Replace /view with /preview
+        finalUrl = url.replace(/\/view.*/, '/preview');
+    }
+
+    const iframe = document.getElementById('pdfPreviewFrame');
+    const title = document.getElementById('pdfPreviewTitle');
+    const downloadBtn = document.getElementById('pdfDownloadLink');
+    const modal = document.getElementById('pdfPreviewModal');
+
+    if (iframe && modal) {
+        iframe.src = finalUrl;
+        if (title) title.innerText = name;
+        if (downloadBtn) {
+            downloadBtn.href = url;
+            downloadBtn.download = name; // Attribute often ignored for cross-origin but good practice
+        }
+        modal.classList.remove('hidden');
+    }
+}
+
+function closePdfPreview() {
+    const modal = document.getElementById('pdfPreviewModal');
+    const iframe = document.getElementById('pdfPreviewFrame');
+    if (modal) modal.classList.add('hidden');
+    if (iframe) iframe.src = "";
 }
 
 // --- 設定頁面邏輯 ---

@@ -63,6 +63,9 @@ h6,
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
+    white-space: nowrap;
+    min-width: 110px;
+    justify-content: center;
 }
 
 .nav-btn:hover:not(.bg-slate-700) {
