@@ -1055,6 +1055,31 @@ const SoundFX = {
     playFanfare: function () {
         this.init();
         const t = this.ctx.currentTime;
+        const playTone = (freq, start, dur, type = 'triangle') => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.2, start + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(start);
+            osc.stop(start + dur);
+        };
+
+        // 勝利號角 melody
+        playTone(523.25, t, 0.1); // C5
+        playTone(523.25, t + 0.1, 0.1); // C5
+        playTone(523.25, t + 0.2, 0.1); // C5
+        playTone(659.25, t + 0.3, 0.4); // E5
+        playTone(783.99, t + 0.4, 0.4); // G5
+        playTone(1046.50, t + 0.6, 1.0, 'sine'); // C6 (High)
+    },
+    playTimerEnd: function () {
+        this.init();
+        const t = this.ctx.currentTime;
         const playTone = (freq, start, dur) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
@@ -1063,7 +1088,8 @@ const SoundFX = {
 
             // Soft attack and smooth slow decay like a bell/chime
             gain.gain.setValueAtTime(0, start);
-            gain.gain.linearRampToValueAtTime(0.8, start + 0.05);
+            // Allow the chime to be a little louder to distinguish it from the bg music
+            gain.gain.linearRampToValueAtTime(0.9, start + 0.05);
             gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
 
             osc.connect(gain);
@@ -1593,6 +1619,7 @@ function startSlotMachine() {
         nameDisp.className = `text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r ${randGrad} opacity-100 scale-110 blur-0 drop-shadow-[0_0_30px_rgba(255,255,250,0.4)] transition-all duration-500 animate-in zoom-in spin-in-3`;
 
         // Effects
+        SoundFX.playFanfare();
         fireConfetti(slot1);
         fireConfetti(slot2);
 
@@ -3432,7 +3459,7 @@ function timerAction(action) {
                     document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="play" class="w-6 h-6 fill-current"></i>`;
                     document.getElementById('timerAudioPlayer').pause();
                     document.getElementById('timerAudioPlayer').currentTime = 0;
-                    SoundFX.playFanfare();
+                    SoundFX.playTimerEnd();
                     const modal = document.getElementById('floatingTimer');
                     modal.classList.add('ring-4', 'ring-rose-500');
                     setTimeout(() => modal.classList.remove('ring-4', 'ring-rose-500'), 1000);
