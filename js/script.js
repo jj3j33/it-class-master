@@ -1055,27 +1055,77 @@ const SoundFX = {
     playFanfare: function () {
         this.init();
         const t = this.ctx.currentTime;
-        const playTone = (freq, start, dur, type = 'triangle') => {
+        const playTone = (freq, start, dur) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.type = type;
+            osc.type = 'sine'; // pure and soft tone to avoid harshness
             osc.frequency.value = freq;
+
+            // Soft attack and smooth slow decay like a bell/chime
             gain.gain.setValueAtTime(0, start);
-            gain.gain.linearRampToValueAtTime(0.2, start + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+            gain.gain.linearRampToValueAtTime(0.8, start + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+
             osc.connect(gain);
             gain.connect(this.ctx.destination);
             osc.start(start);
             osc.stop(start + dur);
         };
 
-        // 勝利號角 melody
-        playTone(523.25, t, 0.1); // C5
-        playTone(523.25, t + 0.1, 0.1); // C5
-        playTone(523.25, t + 0.2, 0.1); // C5
-        playTone(659.25, t + 0.3, 0.4); // E5
-        playTone(783.99, t + 0.4, 0.4); // G5
-        playTone(1046.50, t + 0.6, 1.0, 'sine'); // C6 (High)
+        // Pleasant, soft 3 chimes (A5 note)
+        for (let i = 0; i < 3; i++) {
+            const offset = (i * 0.5); // Spread them out slightly
+            playTone(880, t + offset, 0.8); // 880Hz, 0.8s duration per chime
+        }
+    },
+    playCountdownBeep: function (index) {
+        this.init();
+        const t = this.ctx.currentTime;
+
+        // Use a tiny burst of noise to simulate a mechanical "click"
+        const bufferSize = this.ctx.sampleRate * 0.05; // 50ms
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        // Filter noise to sound like a sharp metallic tick/tock
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        // Alternate frequency for tick vs tock
+        const isTick = index % 2 !== 0;
+        filter.frequency.value = isTick ? 4000 : 2500;
+        filter.Q.value = 1.0;
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(1.5, t); // loud!
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.03); // super fast decay
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+
+        // Add a very short, tonal square-wave to give the click a pitch
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(isTick ? 800 : 500, t);
+
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.03);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        // Start context
+        noise.start(t);
+        noise.stop(t + 0.05);
+        osc.start(t);
+        osc.stop(t + 0.05);
     }
 };
 
@@ -3142,8 +3192,8 @@ function renderLeaderboard() {
 
 // --- 懸浮計時器邏輯 ---
 let timerState = {
-    totalSeconds: 300,
-    remainingSeconds: 300,
+    totalSeconds: 60,
+    remainingSeconds: 60,
     isRunning: false,
     intervalId: null
 };
@@ -3160,7 +3210,17 @@ function toggleTimerModal() {
 function updateTimerDisplay() {
     const m = Math.floor(timerState.remainingSeconds / 60);
     const s = timerState.remainingSeconds % 60;
-    document.getElementById('timerDisplay').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+    const minInput = document.getElementById('timerInputMin');
+    const secInput = document.getElementById('timerInputSec');
+
+    if (minInput && secInput) {
+        minInput.value = String(m).padStart(2, '0');
+        secInput.value = String(s).padStart(2, '0');
+    } else {
+        const display = document.getElementById('timerDisplay');
+        if (display) display.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
 
     // Progress
     const progress = document.getElementById('timerProgress');
@@ -3171,9 +3231,55 @@ function updateTimerDisplay() {
     if (timerState.remainingSeconds <= 10 && timerState.remainingSeconds > 0) {
         progress.classList.add('text-rose-500');
         progress.style.stroke = '#f43f5e';
-        if (timerState.remainingSeconds % 2 !== 0 && timerState.isRunning) SoundFX.playTick();
+        if (timerState.isRunning) {
+            const beepIndex = 11 - timerState.remainingSeconds; // 1 to 10
+            SoundFX.playCountdownBeep(beepIndex);
+
+            // Lower music volume to make beep more prominent
+            const audioPlayer = document.getElementById('timerAudioPlayer');
+            if (audioPlayer) audioPlayer.volume = 0.2;
+        }
     } else {
+        progress.classList.remove('text-rose-500');
         progress.style.stroke = '#fbbf24';
+
+        // Restore music volume
+        const audioPlayer = document.getElementById('timerAudioPlayer');
+        if (audioPlayer) audioPlayer.volume = 1.0;
+    }
+}
+
+function updateTimerFromInput() {
+    if (timerState.isRunning) return;
+
+    const minInput = document.getElementById('timerInputMin');
+    const secInput = document.getElementById('timerInputSec');
+
+    if (!minInput || !secInput) return;
+
+    let m = parseInt(minInput.value) || 0;
+    let s = parseInt(secInput.value) || 0;
+
+    // Constrain values
+    if (m < 0) m = 0;
+    if (m > 99) m = 99;
+    if (s < 0) s = 0;
+    if (s > 59) s = 59;
+
+    minInput.value = String(m).padStart(2, '0');
+    secInput.value = String(s).padStart(2, '0');
+
+    timerState.totalSeconds = (m * 60) + s;
+    timerState.remainingSeconds = timerState.totalSeconds;
+
+    // Update progress ring
+    updateTimerDisplay();
+}
+
+function handleTimerInputEnter(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        event.target.blur(); // Triggers onblur which calls updateTimerFromInput
     }
 }
 
@@ -3258,6 +3364,44 @@ function moveModule(index, direction) {
     renderModules();
 }
 
+function handleTimerMusicSelect() {
+    const select = document.getElementById('timerMusicSelect');
+    const audioPlayer = document.getElementById('timerAudioPlayer');
+    const value = select.value;
+
+    if (value === 'custom') {
+        document.getElementById('timerMusicUpload').click();
+    } else if (value === '') {
+        audioPlayer.removeAttribute('src');
+        audioPlayer.pause();
+    } else {
+        audioPlayer.src = value;
+        // 如果計時器正在跑，就直接播放
+        if (timerState.isRunning) {
+            audioPlayer.play().catch(console.error);
+        }
+    }
+}
+
+function handleTimerMusicUpload(event) {
+    const file = event.target.files[0];
+    const select = document.getElementById('timerMusicSelect');
+
+    if (!file) {
+        select.value = "";
+        handleTimerMusicSelect();
+        return;
+    }
+
+    const audioPlayer = document.getElementById('timerAudioPlayer');
+    const objectUrl = URL.createObjectURL(file);
+    audioPlayer.src = objectUrl;
+
+    if (timerState.isRunning) {
+        audioPlayer.play().catch(console.error);
+    }
+}
+
 function timerAction(action) {
     if (action === 'toggle') {
         if (timerState.isRunning) {
@@ -3265,11 +3409,17 @@ function timerAction(action) {
             timerState.isRunning = false;
             document.getElementById('timerStatusLabel').innerText = "PAUSED";
             document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="play" class="w-6 h-6 fill-current"></i>`;
+            document.getElementById('timerAudioPlayer').pause();
         } else {
             if (timerState.remainingSeconds <= 0) return;
             timerState.isRunning = true;
             document.getElementById('timerStatusLabel').innerText = "RUNNING";
             document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="pause" class="w-6 h-6 fill-current"></i>`;
+
+            const audioPlayer = document.getElementById('timerAudioPlayer');
+            if (audioPlayer.src) {
+                audioPlayer.play().catch(console.error);
+            }
 
             timerState.intervalId = setInterval(() => {
                 timerState.remainingSeconds--;
@@ -3280,6 +3430,8 @@ function timerAction(action) {
                     timerState.isRunning = false;
                     document.getElementById('timerStatusLabel').innerText = "TIME UP";
                     document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="play" class="w-6 h-6 fill-current"></i>`;
+                    document.getElementById('timerAudioPlayer').pause();
+                    document.getElementById('timerAudioPlayer').currentTime = 0;
                     SoundFX.playFanfare();
                     const modal = document.getElementById('floatingTimer');
                     modal.classList.add('ring-4', 'ring-rose-500');
@@ -3293,6 +3445,11 @@ function timerAction(action) {
         timerState.remainingSeconds = timerState.totalSeconds;
         document.getElementById('timerStatusLabel').innerText = "READY";
         document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="play" class="w-6 h-6 fill-current"></i>`;
+
+        const audioPlayer = document.getElementById('timerAudioPlayer');
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+
         updateTimerDisplay();
     }
     lucide.createIcons();
@@ -3305,6 +3462,13 @@ function setTimer(minutes) {
     timerState.remainingSeconds = timerState.totalSeconds;
     document.getElementById('timerStatusLabel').innerText = "READY";
     document.getElementById('btnTimerToggle').innerHTML = `<i data-lucide="play" class="w-6 h-6 fill-current"></i>`;
+
+    const audioPlayer = document.getElementById('timerAudioPlayer');
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    }
+
     updateTimerDisplay();
     lucide.createIcons();
 }
@@ -3313,38 +3477,54 @@ function setTimer(minutes) {
 const dragHandle = document.getElementById('timerDragHandle');
 const dragModal = document.getElementById('floatingTimer');
 let isDragging = false;
-let startX, startY, initialLeft, initialTop;
+let currentX = 0;
+let currentY = 0;
+let initialX = 0;
+let initialY = 0;
 
-if (dragHandle) { // Check existence to avoid error before execution
+if (dragHandle && dragModal) {
     dragHandle.addEventListener('mousedown', (e) => {
         isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        const rect = dragModal.getBoundingClientRect();
-        if (!dragModal.style.left) {
+
+        if (dragModal.style.position !== 'fixed' && dragModal.style.position !== 'absolute') {
+            const rect = dragModal.getBoundingClientRect();
+            dragModal.style.position = 'fixed';
             dragModal.style.left = rect.left + 'px';
             dragModal.style.top = rect.top + 'px';
             dragModal.style.bottom = 'auto';
             dragModal.style.right = 'auto';
+            dragModal.style.transform = 'none';
+            dragModal.style.margin = '0';
         }
-        initialLeft = parseFloat(dragModal.style.left);
-        initialTop = parseFloat(dragModal.style.top);
+
+        initialX = e.clientX - dragModal.offsetLeft;
+        initialY = e.clientY - dragModal.offsetTop;
+
         dragModal.style.cursor = 'grabbing';
         document.body.style.userSelect = 'none';
+
+        dragModal.style.pointerEvents = 'none';
+        dragHandle.style.pointerEvents = 'auto';
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        dragModal.style.left = `${initialLeft + dx}px`;
-        dragModal.style.top = `${initialTop + dy}px`;
+
+        e.preventDefault();
+
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+
+        dragModal.style.left = currentX + 'px';
+        dragModal.style.top = currentY + 'px';
     });
 
     document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
         isDragging = false;
-        if (dragModal) dragModal.style.cursor = 'default';
+        dragModal.style.cursor = 'default';
         document.body.style.userSelect = '';
+        dragModal.style.pointerEvents = 'auto';
     });
 }
 

@@ -1710,12 +1710,20 @@
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     <span class="hidden md:inline text-sm font-bold">返回首頁</span>
                 </button>
-                <div class="bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 flex-1 min-w-0">
-                    <div class="flex items-center gap-2 text-xs text-slate-400 mb-0.5">
-                        <i data-lucide="book-open" class="w-3 h-3"></i>
-                        <span id="resDetailTag" class="uppercase">TAG</span>
+                <div
+                    class="bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 flex-1 min-w-0 flex items-center justify-between">
+                    <div class="min-w-0 flex-1 pr-4">
+                        <div class="flex items-center gap-2 text-xs text-slate-400 mb-0.5">
+                            <i data-lucide="book-open" class="w-3 h-3"></i>
+                            <span id="resDetailTag" class="uppercase">TAG</span>
+                        </div>
+                        <h2 id="resDetailTitle" class="text-lg font-bold text-white truncate">單元標題</h2>
                     </div>
-                    <h2 id="resDetailTitle" class="text-lg font-bold text-white truncate">單元標題</h2>
+                    <button onclick="toggleTimerModal()"
+                        class="shrink-0 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 px-3 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                        <i data-lucide="timer" class="w-5 h-5"></i>
+                        <span class="hidden sm:inline text-sm font-bold">計時器</span>
+                    </button>
                 </div>
             </div>
 
@@ -1946,9 +1954,30 @@
                         stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="0"
                         class="transition-all duration-1000 ease-linear" />
                 </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span id="timerDisplay"
-                        class="text-5xl font-black text-white tracking-widest font-mono">05:00</span>
+                <div class="absolute inset-0 flex flex-col items-center justify-center w-full">
+                    <style>
+                        /* 隱藏數字輸入框的上下箭頭 */
+                        #timerInputMin::-webkit-inner-spin-button,
+                        #timerInputMin::-webkit-outer-spin-button,
+                        #timerInputSec::-webkit-inner-spin-button,
+                        #timerInputSec::-webkit-outer-spin-button {
+                            -webkit-appearance: none;
+                            margin: 0;
+                        }
+                    </style>
+                    <div class="flex items-center text-4xl font-black text-white font-mono leading-none">
+                        <input type="number" id="timerInputMin" value="01" min="0" max="99"
+                            style="-moz-appearance: textfield; appearance: textfield;"
+                            class="w-14 bg-transparent text-center outline-none hover:bg-white/10 rounded-lg transition-colors"
+                            onclick="this.select()" onblur="updateTimerFromInput()"
+                            onkeydown="handleTimerInputEnter(event)">
+                        <span class="mx-0.5 pb-1">:</span>
+                        <input type="number" id="timerInputSec" value="00" min="0" max="59"
+                            style="-moz-appearance: textfield; appearance: textfield;"
+                            class="w-14 bg-transparent text-center outline-none hover:bg-white/10 rounded-lg transition-colors"
+                            onclick="this.select()" onblur="updateTimerFromInput()"
+                            onkeydown="handleTimerInputEnter(event)">
+                    </div>
                     <span id="timerStatusLabel"
                         class="text-xs text-orange-400 font-bold uppercase tracking-widest mt-2">READY</span>
                 </div>
@@ -1966,17 +1995,40 @@
                 </button>
             </div>
 
-            <!-- Quick Set -->
-            <div class="grid grid-cols-4 gap-2 w-full">
+            <div class="grid grid-cols-4 gap-2 w-full mb-4">
+                <button onclick="setTimer(0.5)"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">30s</button>
                 <button onclick="setTimer(1)"
-                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+1m</button>
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">1m</button>
                 <button onclick="setTimer(3)"
-                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+3m</button>
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">3m</button>
                 <button onclick="setTimer(5)"
-                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+5m</button>
-                <button onclick="setTimer(10)"
-                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+10m</button>
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">5m</button>
             </div>
+
+            <!-- Music Settings -->
+            <div class="w-full bg-slate-800/50 rounded-xl p-3 flex flex-col gap-2 border border-slate-700/50">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="music" class="w-4 h-4 text-slate-400"></i>
+                    <span class="text-xs font-bold text-slate-400 flex-1">背景音樂</span>
+                    <input type="file" id="timerMusicUpload" accept="audio/*" class="hidden"
+                        onchange="handleTimerMusicUpload(event)">
+                </div>
+                <select id="timerMusicSelect" onchange="handleTimerMusicSelect()"
+                    class="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-sky-500 cursor-pointer transition-colors pt-1">
+                    <option value="">無</option>
+                    <option value="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3">Lofi Study
+                        (輕音樂)</option>
+                    <option
+                        value="https://www.chosic.com/wp-content/uploads/2021/04/And-So-It-Begins-Inspired-By-Crush-Sometimes.mp3">
+                        Lofi Chill (舒緩)</option>
+                    <option value="https://www.chosic.com/wp-content/uploads/2021/07/purrple-cat-equinox.mp3">Lofi Beat
+                        (節奏)</option>
+                    <option value="custom">自訂上傳檔案...</option>
+                </select>
+            </div>
+
+            <audio id="timerAudioPlayer" loop class="hidden"></audio>
         </div>
     </div>
 
