@@ -1570,18 +1570,54 @@ function startSlotMachine() {
 // --- Textbook Links Logic ---
 
 function openAddTextbookModal() {
-    const name = prompt("請輸入教材名稱：");
-    if (!name) return;
-    const url = prompt("請輸入 PDF 連結 (Google Drive 或其他 URL)：");
-    if (!url) return;
+    document.getElementById('textbookEditTitle').innerHTML = '<i data-lucide="link-2" class="text-sky-400"></i> 新增教材連結';
+    document.getElementById('editTplId').value = '';
+    document.getElementById('editTplName').value = '';
+    document.getElementById('editTplUrl').value = '';
+    document.getElementById('editTplPublisher').value = '翰林';
+    document.getElementById('editTplSemester').value = '一下';
+    document.getElementById('textbookEditModal').classList.remove('hidden');
+    lucide.createIcons();
+}
 
-    textbookLinks.push({
-        id: Date.now(),
-        name: name,
-        url: url,
-        order: textbookLinks.length
-    });
+function closeTextbookEditModal() {
+    document.getElementById('textbookEditModal').classList.add('hidden');
+}
 
+function saveTextbookEdit() {
+    const id = document.getElementById('editTplId').value;
+    const name = document.getElementById('editTplName').value.trim();
+    const url = document.getElementById('editTplUrl').value.trim();
+    const publisher = document.getElementById('editTplPublisher').value;
+    const semester = document.getElementById('editTplSemester').value;
+
+    if (!name || !url) {
+        alert("請輸入名稱和連結");
+        return;
+    }
+
+    if (id) {
+        // Edit existing
+        const item = textbookLinks.find(link => link.id == id);
+        if (item) {
+            item.name = name;
+            item.url = url;
+            item.publisher = publisher;
+            item.semester = semester;
+        }
+    } else {
+        // Add new
+        textbookLinks.push({
+            id: Date.now(),
+            name: name,
+            url: url,
+            publisher: publisher,
+            semester: semester,
+            order: textbookLinks.length
+        });
+    }
+
+    closeTextbookEditModal();
     saveData(); // Syncs to cloud
     renderTextbookGrid();
 }
@@ -1590,13 +1626,24 @@ function renderTextbookGrid() {
     const grid = document.getElementById('textbookGrid');
     if (!grid) return;
 
+    const publisherFilter = document.getElementById('textbookFilterPublisher') ? document.getElementById('textbookFilterPublisher').value : 'All';
+    const semesterFilter = document.getElementById('textbookFilterSemester') ? document.getElementById('textbookFilterSemester').value : 'All';
+
+    const filteredLinks = textbookLinks.filter(item => {
+        const pubMatch = publisherFilter === 'All' || item.publisher === publisherFilter;
+        const semMatch = semesterFilter === 'All' || item.semester === semesterFilter;
+        return pubMatch && semMatch;
+    });
+
     let html = '';
 
     if (textbookLayoutMode === 'list') {
         grid.className = "flex flex-col gap-4";
-        textbookLinks.forEach((item, index) => {
+        filteredLinks.forEach((item) => {
+            const pubBadge = item.publisher ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs ml-2">${item.publisher}</span>` : '';
+            const semBadge = item.semester ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs ml-2">${item.semester}</span>` : '';
             html += `
-                <div class="glass-panel p-4 flex items-center gap-4 group hover:bg-slate-800/80 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
+                <div class="glass-panel p-4 flex items-center gap-4 group hover:bg-slate-800/80 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${item.id})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${item.id})">
                     <div class="cursor-move w-10 flex justify-center text-slate-600 group-hover:text-slate-400 transition-colors">
                         <i data-lucide="grip-vertical" class="w-5 h-5"></i>
                     </div>
@@ -1604,7 +1651,7 @@ function renderTextbookGrid() {
                         <i data-lucide="link" class="w-6 h-6 text-indigo-400/50 group-hover:text-indigo-400 transition-colors"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
+                        <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}${pubBadge}${semBadge}</h3>
                         <p class="text-xs text-slate-500 truncate text-slate-600">${item.url}</p>
                     </div>
                     
@@ -1612,10 +1659,10 @@ function renderTextbookGrid() {
                          <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-bold transition-all flex items-center gap-2">
                             <i data-lucide="eye" class="w-4 h-4"></i> 預覽
                         </button>
-                        <button onclick="editTextbook(${index});" class="p-2 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-colors" title="編輯連結">
+                        <button onclick="editTextbook(${item.id});" class="p-2 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-colors" title="編輯連結">
                             <i data-lucide="edit-2" class="w-5 h-5"></i>
                         </button>
-                        <button onclick="deleteTextbook(${index});" class="p-2 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-400 transition-colors" title="刪除連結">
+                        <button onclick="deleteTextbook(${item.id});" class="p-2 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-400 transition-colors" title="刪除連結">
                             <i data-lucide="trash-2" class="w-5 h-5"></i>
                         </button>
                     </div>
@@ -1625,22 +1672,25 @@ function renderTextbookGrid() {
     } else {
         grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
 
-        textbookLinks.forEach((item, index) => {
+        filteredLinks.forEach((item) => {
+            const pubBadge = item.publisher ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs mr-1">${item.publisher}</span>` : '';
+            const semBadge = item.semester ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs">${item.semester}</span>` : '';
             html += `
-                <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
+                <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${item.id})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${item.id})">
                     <div class="h-40 bg-slate-800 relative flex items-center justify-center overflow-hidden cursor-move">
                         <i data-lucide="link" class="w-16 h-16 text-indigo-400/20 group-hover:scale-110 transition-transform duration-500"></i>
                          <div class="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-60"></div>
                          <span class="absolute bottom-2 right-2 text-[10px] font-mono bg-slate-900/80 px-2 py-0.5 rounded text-indigo-300 border border-indigo-500/30">LINK</span>
-                         <button onclick="deleteTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-rose-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="刪除連結">
+                         <button onclick="deleteTextbook(${item.id}); event.stopPropagation();" class="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-rose-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="刪除連結">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                          </button>
-                          <button onclick="editTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-10 p-1.5 bg-slate-900/50 hover:bg-amber-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="編輯連結">
+                          <button onclick="editTextbook(${item.id}); event.stopPropagation();" class="absolute top-2 right-10 p-1.5 bg-slate-900/50 hover:bg-amber-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="編輯連結">
                             <i data-lucide="edit-2" class="w-4 h-4"></i>
                          </button>
                     </div>
                     <div class="p-4 flex-1 flex flex-col">
                         <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
+                        <div class="flex items-center mb-1">${pubBadge}${semBadge}</div>
                         <p class="text-xs text-slate-500 mb-4 truncate text-slate-600">${item.url}</p>
                         <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="mt-auto w-full bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-400 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 border border-slate-700 group-hover:border-indigo-500/50">
                             <i data-lucide="eye" class="w-4 h-4"></i> 預覽
@@ -1673,10 +1723,10 @@ function setTextbookLayout(mode) {
 }
 
 // Drag and Drop Logic for Textbook Links
-let draggedFileIndex = null;
+let draggedFileId = null;
 
-function dragStart(event, index) {
-    draggedFileIndex = index;
+function dragStart(event, id) {
+    draggedFileId = id;
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/html', event.target.innerHTML);
     event.target.classList.add('opacity-50');
@@ -1688,46 +1738,55 @@ function dragOver(event) {
     return false;
 }
 
-function filesDrop(event, targetIndex) {
+function filesDrop(event, targetId) {
     event.stopPropagation();
     event.preventDefault();
 
     const files = document.querySelectorAll('.draggable-file');
     files.forEach(file => file.classList.remove('opacity-50'));
 
-    if (draggedFileIndex !== null && draggedFileIndex !== targetIndex) {
-        // Reorder array
-        const item = textbookLinks.splice(draggedFileIndex, 1)[0];
-        textbookLinks.splice(targetIndex, 0, item);
+    if (draggedFileId !== null && draggedFileId !== targetId) {
+        // Find indices using id
+        const dragIndex = textbookLinks.findIndex(l => l.id == draggedFileId);
+        const targetIndex = textbookLinks.findIndex(l => l.id == targetId);
 
-        // Update functionality 'order'
-        textbookLinks.forEach((f, i) => f.order = i);
+        if (dragIndex > -1 && targetIndex > -1) {
+            // Reorder array
+            const item = textbookLinks.splice(dragIndex, 1)[0];
+            textbookLinks.splice(targetIndex, 0, item);
 
-        saveData(); // Sync new order
-        renderTextbookGrid();
+            // Update functionality 'order'
+            textbookLinks.forEach((f, i) => f.order = i);
+
+            saveData(); // Sync new order
+            renderTextbookGrid();
+        }
     }
     return false;
 }
 
-function deleteTextbook(index) {
+function deleteTextbook(id) {
     if (!confirm('確定要刪除這個教材連結嗎？')) return;
-    textbookLinks.splice(index, 1);
-    saveData();
-    renderTextbookGrid();
+    const index = textbookLinks.findIndex(l => l.id == id);
+    if (index > -1) {
+        textbookLinks.splice(index, 1);
+        saveData();
+        renderTextbookGrid();
+    }
 }
 
-function editTextbook(index) {
-    const item = textbookLinks[index];
-    const newName = prompt("請輸入新的教材名稱：", item.name);
-    if (!newName) return;
-    const newUrl = prompt("請輸入新的教材連結：", item.url);
-    if (!newUrl) return;
+function editTextbook(id) {
+    const item = textbookLinks.find(l => l.id == id);
+    if (!item) return;
 
-    item.name = newName;
-    item.url = newUrl;
-
-    saveData();
-    renderTextbookGrid();
+    document.getElementById('textbookEditTitle').innerHTML = '<i data-lucide="edit-2" class="text-amber-400"></i> 編輯教材連結';
+    document.getElementById('editTplId').value = item.id;
+    document.getElementById('editTplName').value = item.name || '';
+    document.getElementById('editTplUrl').value = item.url || '';
+    document.getElementById('editTplPublisher').value = item.publisher || '翰林';
+    document.getElementById('editTplSemester').value = item.semester || '一下';
+    document.getElementById('textbookEditModal').classList.remove('hidden');
+    lucide.createIcons();
 }
 
 function previewTextbookLink(url, name) {

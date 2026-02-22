@@ -571,6 +571,27 @@
                     <i data-lucide="book-open" class="text-sky-400"></i> 教材檔案列表
                 </h2>
                 <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <select id="textbookFilterPublisher" onchange="renderTextbookGrid()"
+                            class="bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm border border-slate-700 outline-none hover:border-sky-500/50 transition-colors focus:ring-2 focus:ring-sky-500/50 cursor-pointer">
+                            <option value="All">所有版本</option>
+                            <option value="翰林">翰林</option>
+                            <option value="康軒">康軒</option>
+                            <option value="南一">南一</option>
+                            <option value="其他">其他</option>
+                        </select>
+                        <select id="textbookFilterSemester" onchange="renderTextbookGrid()"
+                            class="bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm border border-slate-700 outline-none hover:border-sky-500/50 transition-colors focus:ring-2 focus:ring-sky-500/50 cursor-pointer">
+                            <option value="All">所有學期</option>
+                            <option value="一上">一上</option>
+                            <option value="一下">一下</option>
+                            <option value="二上">二上</option>
+                            <option value="二下">二下</option>
+                            <option value="三上">三上</option>
+                            <option value="三下">三下</option>
+                            <option value="不分學期">不分學期</option>
+                        </select>
+                    </div>
                     <div class="bg-slate-800 p-1 rounded-lg flex gap-1 border border-slate-700">
                         <button onclick="setTextbookLayout('grid')" id="btnLayoutGrid"
                             class="p-1.5 rounded-md bg-slate-700 text-white transition-colors" title="網格檢視">
@@ -2211,6 +2232,63 @@
         title="展開畫筆按鈕">
         <i data-lucide="chevron-left" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
     </button>
+
+    <!-- Textbook Edit Modal -->
+    <div id="textbookEditModal"
+        class="fixed inset-0 z-[200] hidden bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <h3 id="textbookEditTitle" class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <i data-lucide="link-2" class="text-sky-400"></i> 新增/編輯教材連結
+            </h3>
+
+            <input type="hidden" id="editTplId" value="">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">教材名稱</label>
+                    <input type="text" id="editTplName" placeholder="例如: 康軒三下國語電子書"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">網址連結 (URL)</label>
+                    <input type="url" id="editTplUrl" placeholder="https://"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-400 mb-1">版本</label>
+                        <select id="editTplPublisher"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                            <option value="翰林">翰林</option>
+                            <option value="康軒">康軒</option>
+                            <option value="南一">南一</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-400 mb-1">學期</label>
+                        <select id="editTplSemester"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                            <option value="一上">一上</option>
+                            <option value="一下">一下</option>
+                            <option value="二上">二上</option>
+                            <option value="二下">二下</option>
+                            <option value="三上">三上</option>
+                            <option value="三下">三下</option>
+                            <option value="不分學期">不分學期</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-700">
+                <button onclick="closeTextbookEditModal()"
+                    class="px-4 py-2 text-slate-400 hover:text-white rounded-lg transition-colors hover:bg-slate-700 font-bold">取消</button>
+                <button onclick="saveTextbookEdit()"
+                    class="bg-sky-600 hover:bg-sky-500 px-6 py-2 rounded-lg text-white font-bold transition-colors shadow-[0_0_15px_rgba(14,165,233,0.3)]">儲存</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

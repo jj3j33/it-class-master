@@ -335,12 +335,18 @@ function updateTextbookLinksView(links) {
   if (!sheet) sheet = ss.insertSheet("View_TextbookLinks");
   
   sheet.clear();
-  var headers = ["教材名稱", "連結網址"];
+  var headers = ["教材名稱", "連結網址", "版本", "學期", "排序權重"];
   var rows = [headers];
   
   if (Array.isArray(links)) {
     links.forEach(function(link) {
-      rows.push([link.name || "未命名", link.url || ""]);
+      rows.push([
+        link.name || "未命名", 
+        link.url || "", 
+        link.publisher || "", 
+        link.semester || "", 
+        link.order || 0
+      ]);
     });
   }
   
