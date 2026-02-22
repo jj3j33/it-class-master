@@ -1,0 +1,2294 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Class Master Pro | 資訊課教學管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
+                        heading: ['Outfit', 'Noto Sans TC', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+
+<body class="min-h-screen pb-12">
+    <!-- Login View -->
+    <div id="view-login" class="fixed inset-0 z-[1000] bg-slate-900 flex flex-col items-center justify-center p-4">
+        <div
+            class="glass-panel p-8 w-full max-w-md flex flex-col items-center gap-6 border-t-4 border-t-indigo-500 animate-in zoom-in duration-500">
+            <div
+                class="w-20 h-20 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl mb-2 icon-float">
+                <i data-lucide="layout-dashboard" class="text-white w-10 h-10"></i>
+            </div>
+
+            <div class="text-center">
+                <h1
+                    class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-indigo-400 mb-2">
+                    IT Class Master
+                </h1>
+                <p class="text-slate-400 font-mono text-sm tracking-wider">TEACHER ACCESS PORTAL</p>
+            </div>
+
+            <div class="w-full space-y-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Access Code</label>
+                    <div class="relative group">
+                        <i data-lucide="lock"
+                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-sky-400 transition-colors w-5 h-5"></i>
+                        <input type="password" id="loginPassword"
+                            class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder-slate-600 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-mono tracking-widest text-center text-lg"
+                            placeholder="••••" onkeyup="if(event.key === 'Enter') performLogin()">
+                    </div>
+                </div>
+
+                <button onclick="performLogin()"
+                    class="w-full bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 group">
+                    <span>LOGIN SYSTEM</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+            </div>
+
+            <p id="loginError"
+                class="text-rose-400 text-sm font-bold opacity-0 transition-opacity flex items-center gap-1">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i> Access Denied
+            </p>
+        </div>
+    </div>
+    <!-- Global Loader -->
+    <div id="globalLoader"
+        class="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <div class="text-slate-300 font-bold tracking-widest animate-pulse">SYSTEM INITIALIZING</div>
+    </div>
+
+    <!-- 頂部導航欄 -->
+    <nav id="mainNav"
+        class="hidden sticky top-0 z-50 glass-panel m-4 px-6 py-3 flex flex-wrap items-center justify-between shadow-2xl transition-all duration-300">
+        <!-- Logo Section -->
+        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('dashboard')">
+            <div class="bg-sky-500 p-2 rounded-lg shadow-lg shadow-sky-500/20">
+                <i data-lucide="layout-dashboard" class="text-white w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-indigo-400">
+                    IT Class Master
+                </h1>
+                <p class="text-[10px] text-slate-500 font-mono leading-none">PROFESSIONAL EDITION</p>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button id="mobileMenuBtn"
+            class="md:hidden p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+            onclick="toggleMobileMenu()">
+            <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+
+        <!-- Collapsible Content -->
+        <div id="navContent"
+            class="hidden w-full md:flex md:w-auto md:items-center md:gap-4 mt-4 md:mt-0 border-t border-slate-700/50 md:border-t-0 pt-4 md:pt-0 animate-in slide-in-from-top-2 duration-200 md:animate-none">
+
+            <!-- Navigation Buttons -->
+            <div
+                class="flex flex-col md:flex-row gap-2 md:gap-1 w-full md:w-auto xl:absolute xl:left-1/2 xl:-translate-x-1/2">
+                <button onclick="switchTab('dashboard')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-dashboard">
+                    <i data-lucide="home" class="w-4 h-4"></i> 首頁
+                </button>
+                <button onclick="switchTab('seating')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-seating">
+                    <i data-lucide="grid" class="w-4 h-4"></i> 學生管理
+                </button>
+                <button onclick="switchTab('records')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-records">
+                    <i data-lucide="clipboard-list" class="w-4 h-4"></i> 班級紀錄
+                </button>
+                <button onclick="switchTab('lottery')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-lottery">
+                    <i data-lucide="dices" class="w-4 h-4"></i> 互動抽籤
+                </button>
+                <button onclick="switchTab('textbook')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-textbook">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> 教材檔案
+                </button>
+                <button onclick="switchTab('settings')"
+                    class="nav-btn px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all w-full md:w-auto"
+                    id="btn-settings">
+                    <i data-lucide="settings" class="w-4 h-4"></i> 系統設定
+                </button>
+            </div>
+
+            <!-- Right Controls -->
+            <div
+                class="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-700 mt-4 md:mt-0 pt-4 md:pt-0 md:pl-4 xl:border-l-0 xl:pl-0 justify-between md:justify-start w-full md:w-auto">
+                <select id="classSelector"
+                    class="bg-slate-800 border border-slate-700 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-sky-500 outline-none flex-1 md:flex-none"></select>
+                <div onclick="logout()" title="登出系統"
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center font-bold text-xs cursor-pointer hover:ring-2 hover:ring-white transition-all shadow-lg shadow-indigo-500/30 shrink-0">
+                    <i data-lucide="log-out" class="w-4 h-4 text-white"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="mainContent" class="hidden max-w-[1400px] mx-auto px-4">
+
+        <!-- 分頁 1: 儀表板首頁 -->
+        <section id="view-dashboard" class="space-y-8 animate-in fade-in duration-500">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- 狀態概覽卡 -->
+                <div
+                    class="dashboard-card glass-panel p-6 col-span-1 md:col-span-2 flex flex-col justify-between overflow-hidden relative">
+                    <!-- 背景裝飾 -->
+                    <div class="absolute -right-10 -top-10 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl"></div>
+
+                    <div class="relative z-10">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-2xl font-bold">歡迎回來，老師</h2>
+                                <p id="classStatusMsg" class="text-slate-400 mt-1 text-sm">正在載入課程資訊...</p>
+                            </div>
+                            <div class="text-right flex flex-col items-end gap-2">
+                                <div>
+                                    <span id="currentDate"
+                                        class="text-sm text-slate-400 font-mono block">----.--.--</span>
+                                    <span id="currentTime"
+                                        class="text-lg font-black text-sky-400 font-mono">00:00:00</span>
+                                </div>
+                                <a href="ScreenMarker-Desktop.zip" download
+                                    class="bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-500/30 group shadow-lg">
+                                    <i data-lucide="download"
+                                        class="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                                    下載桌面畫筆軟體
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- 當前/下一節課程資訊區 -->
+                        <div class="flex items-center gap-4 bg-slate-800/40 p-4 rounded-2xl border border-white/5 mb-6">
+                            <div id="timerContainer"
+                                class="timer-badge w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0">
+                                <span id="timerLabel" class="text-[10px] opacity-80 font-bold text-white">距離下課</span>
+                                <span id="countdownText" class="text-xl font-black text-white font-mono">--:--</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded font-bold uppercase"
+                                        id="currentPeriodLabel">NO CLASS</span>
+                                    <span class="text-xs text-slate-500 font-mono" id="periodTimeRange">--:-- ~
+                                        --:--</span>
+                                </div>
+                                <h3 class="text-xl font-bold mt-1" id="classInfoHeading">目前課程：<span
+                                        id="currentClassDisplay" class="text-sky-400">無課程</span></h3>
+                            </div>
+                            <button onclick="autoSwitchToCurrentClass()" id="autoSwitchBtn"
+                                class="hidden bg-sky-600 hover:bg-sky-500 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-sky-900/40">
+                                切換至此班級
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 relative z-10">
+                        <div class="bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                            <p class="text-xs text-slate-500 mb-1">本班總人數</p>
+                            <p class="text-2xl font-mono font-bold text-sky-400" id="stat-total">--</p>
+                        </div>
+                        <div class="bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                            <p class="text-xs text-slate-500 mb-1">目前出席</p>
+                            <p class="text-2xl font-mono font-bold text-green-400" id="stat-present">--</p>
+                        </div>
+                        <div class="bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                            <p class="text-xs text-slate-500 mb-1">目前缺席</p>
+                            <p class="text-2xl font-mono font-bold text-red-400" id="stat-absent">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快速抽籤入口 -->
+                <div class="dashboard-card glass-panel p-6 bg-gradient-to-br from-indigo-600/20 to-transparent">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i data-lucide="sparkles" class="text-yellow-400"></i>
+                        <h3 class="font-bold">快速抽籤</h3>
+                    </div>
+                    <div
+                        class="h-24 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl mb-4">
+                        <span id="quickWinner" class="text-3xl font-black text-slate-500">?</span>
+                    </div>
+                    <!-- 快速抽籤後的動作按鈕 -->
+                    <div id="quickDrawActions"
+                        class="hidden flex justify-center gap-3 mb-4 animate-in fade-in slide-in-from-top-2">
+                        <button onclick="updateScore(lastWinnerIndex, 1)"
+                            class="flex-1 bg-emerald-500/20 text-emerald-400 py-2 rounded-lg hover:bg-emerald-500 hover:text-white transition-colors font-bold text-sm flex items-center justify-center gap-1">
+                            <i data-lucide="plus" class="w-4 h-4"></i> 加分
+                        </button>
+                        <button onclick="updateScore(lastWinnerIndex, -1)"
+                            class="flex-1 bg-rose-500/20 text-rose-400 py-2 rounded-lg hover:bg-rose-500 hover:text-white transition-colors font-bold text-sm flex items-center justify-center gap-1">
+                            <i data-lucide="minus" class="w-4 h-4"></i> 扣分
+                        </button>
+                    </div>
+                    <button onclick="startLottery()"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-all">
+                        立刻抽出一人
+                    </button>
+                    <p class="text-[10px] text-center text-slate-500 mt-2 italic">※ 僅限已出席學生</p>
+                </div>
+            </div>
+
+            <!-- 功能模組區域 -->
+            <!-- 功能模組區域 (Carousel) -->
+            <div class="relative group/carousel">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <i data-lucide="layout-grid" class="w-5 h-5 text-sky-400"></i> 教學模組入口
+                    </h3>
+                    <button id="btnModuleReorder" onclick="toggleModuleReorder()"
+                        class="text-xs flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-slate-700">
+                        <i data-lucide="arrow-left-right" class="w-3 h-3"></i> 排序
+                    </button>
+                </div>
+
+                <!-- Scroll Buttons -->
+                <button onclick="scrollModules(-1)"
+                    class="absolute left-0 top-[60%] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-slate-800/80 border border-slate-600 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-slate-700 shadow-xl disabled:opacity-0 -ml-5">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                </button>
+                <button onclick="scrollModules(1)"
+                    class="absolute right-0 top-[60%] -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-slate-800/80 border border-slate-600 text-white flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity hover:bg-slate-700 shadow-xl disabled:opacity-0 -mr-5">
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                </button>
+
+                <div id="modulesContainer"
+                    class="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth hide-scrollbar pb-4 -mx-1 px-1">
+                    <!-- JS Generated Content -->
+                </div>
+            </div>
+
+            <!-- 教材資源入口 -->
+            <div class="pb-12 relative group/resources">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i> 教材資源庫
+                    </h3>
+                    <button onclick="openResourceManager()"
+                        class="text-xs flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-slate-700">
+                        <i data-lucide="settings-2" class="w-3 h-3"></i> 管理教材
+                    </button>
+                </div>
+
+                <!-- Scroll Buttons -->
+                <button onclick="scrollResources(-1)"
+                    class="absolute left-0 top-1/2 translate-y-4 z-10 w-10 h-10 rounded-full bg-slate-800/90 border border-slate-600 text-white flex items-center justify-center opacity-0 group-hover/resources:opacity-100 transition-opacity hover:bg-slate-700 shadow-xl disabled:opacity-0 -ml-5 hidden md:flex backdrop-blur-sm">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                </button>
+                <button onclick="scrollResources(1)"
+                    class="absolute right-0 top-1/2 translate-y-4 z-10 w-10 h-10 rounded-full bg-slate-800/90 border border-slate-600 text-white flex items-center justify-center opacity-0 group-hover/resources:opacity-100 transition-opacity hover:bg-slate-700 shadow-xl disabled:opacity-0 -mr-5 hidden md:flex backdrop-blur-sm">
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                </button>
+
+                <div id="resourceGrid"
+                    class="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth hide-scrollbar -mx-4 px-4 pb-8 pt-2">
+                    <!-- JS Generated Content -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 2: 座位管理 -->
+        <section id="view-seating" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
+                <div class="flex items-center gap-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i data-lucide="layout-grid" class="text-sky-400"></i> 座位點名表
+                    </h2>
+                    <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <span class="text-xs text-slate-400 px-2">網格佈局</span>
+                        <input type="number" id="gridCols" min="1" max="12"
+                            class="w-10 bg-slate-900 border border-slate-600 rounded px-1 text-center text-sm"
+                            onchange="updateLayout()">
+                        <span class="text-slate-500">×</span>
+                        <input type="number" id="gridRows" min="1" max="12"
+                            class="w-10 bg-slate-900 border border-slate-600 rounded px-1 text-center text-sm"
+                            onchange="updateLayout()">
+                    </div>
+                </div>
+                <div class="flex gap-4 items-center">
+                    <button onclick="switchTab('leaderboard')"
+                        class="bg-pink-600/20 text-pink-400 hover:bg-pink-600 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-pink-500/30">
+                        <i data-lucide="trophy" class="w-3.5 h-3.5"></i> 排行榜
+                    </button>
+
+                    <div class="flex items-center gap-4 text-xs font-medium">
+                        <span class="flex items-center gap-1.5"><span
+                                class="w-2.5 h-2.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                            出席</span>
+                        <span class="flex items-center gap-1.5"><span
+                                class="w-2.5 h-2.5 bg-red-500 rounded-full"></span> 缺席</span>
+                        <span class="flex items-center gap-1.5"><span
+                                class="w-2.5 h-2.5 bg-yellow-500 rounded-full"></span> 遲到</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full bg-slate-800/50 p-3 rounded-xl border border-slate-700 flex items-center gap-4 mb-4">
+                <div class="flex items-center gap-2 border-r border-slate-700 pr-4">
+                    <label class="flex items-center gap-2 text-sm font-bold text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"
+                            class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-offset-0 focus:ring-1 focus:ring-indigo-500">
+                        全選名單
+                    </label>
+                    <span id="selectionCount"
+                        class="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-0.5 rounded-full">(0)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500 mr-1">批次動作:</span>
+                    <button onclick="batchUpdateScore(1)"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all active:scale-95 shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                        id="btnBatchAdd">
+                        <i data-lucide="plus" class="w-3 h-3"></i> 加分
+                    </button>
+                    <button onclick="batchUpdateScore(-1)"
+                        class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all active:scale-95 shadow-lg shadow-rose-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                        id="btnBatchSub">
+                        <i data-lucide="minus" class="w-3 h-3"></i> 扣分
+                    </button>
+                    <div class="w-px h-6 bg-slate-700 mx-2"></div>
+                    <button onclick="saveAttendance()"
+                        class="bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all ml-1">
+                        <i data-lucide="save" class="w-3 h-3"></i> 儲存點名
+                    </button>
+                </div>
+            </div>
+
+            <div id="seatingGrid" class="grid gap-4 mb-16 max-w-5xl mx-auto"></div>
+
+            <div class="flex justify-center">
+                <div
+                    class="teacher-desk w-96 py-8 rounded-3xl flex flex-col items-center justify-center gap-3 border-t-4 border-t-sky-400">
+                    <div class="flex items-center gap-4 text-sky-400">
+                        <i data-lucide="mic" class="w-6 h-6"></i>
+                        <i data-lucide="laptop" class="w-8 h-8"></i>
+                        <i data-lucide="cast" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-xs font-black tracking-[0.5em] text-slate-400 uppercase">TEACHER'S PODIUM</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 3: 抽籤器 (Slot Machine Style) -->
+        <section id="view-lottery" class="hidden animate-in zoom-in-95 duration-300">
+            <div class="max-w-6xl mx-auto flex flex-col items-center justify-center py-8">
+
+                <!-- Wrapper to center the machine and position lever absolutely on desktop -->
+                <div class="relative flex flex-col items-center w-full">
+
+                    <!-- 老虎機本體 (Centered) -->
+                    <div
+                        class="relative w-full max-w-2xl bg-slate-800 rounded-[3rem] p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] border-4 border-slate-700 bg-[linear-gradient(180deg,#1e293b_0%,#0f172a_100%)] z-10">
+
+                        <!-- 裝飾燈號 -->
+                        <div class="absolute top-5 left-8 right-8 flex justify-between">
+                            <div class="flex gap-3">
+                                <div class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-pulse">
+                                </div>
+                                <div
+                                    class="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse delay-75">
+                                </div>
+                                <div
+                                    class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse delay-150">
+                                </div>
+                            </div>
+                            <div class="text-xs font-black text-slate-500 tracking-[0.3em] uppercase">LUCKY DRAW SYSTEM
+                            </div>
+                        </div>
+
+                        <!-- 顯示螢幕 -->
+                        <div
+                            class="mt-8 bg-black/60 rounded-3xl p-8 border-4 border-slate-900 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] relative overflow-hidden">
+                            <!-- 背景格線裝飾 -->
+                            <div
+                                class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.03)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] opacity-50">
+                            </div>
+
+                            <!-- 數字滾輪區 -->
+                            <div class="flex justify-center gap-4 mb-8 relative z-10">
+                                <!-- 滾輪 1 -->
+                                <div
+                                    class="w-32 h-40 bg-gradient-to-b from-slate-200 via-white to-slate-300 rounded-2xl flex items-center justify-center border-4 border-slate-300 shadow-xl overflow-hidden relative group">
+                                    <div
+                                        class="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/20 to-transparent z-20">
+                                    </div>
+                                    <div
+                                        class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent z-20">
+                                    </div>
+                                    <div id="slot1"
+                                        class="text-8xl font-black text-slate-800 select-none transform transition-transform will-change-transform">
+                                        ?</div>
+                                </div>
+
+                                <!-- 滾輪 2 -->
+                                <div
+                                    class="w-32 h-40 bg-gradient-to-b from-slate-200 via-white to-slate-300 rounded-2xl flex items-center justify-center border-4 border-slate-300 shadow-xl overflow-hidden relative group">
+                                    <div
+                                        class="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/20 to-transparent z-20">
+                                    </div>
+                                    <div
+                                        class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent z-20">
+                                    </div>
+                                    <div id="slot2"
+                                        class="text-8xl font-black text-slate-800 select-none transform transition-transform will-change-transform">
+                                        ?</div>
+                                </div>
+                            </div>
+
+                            <!-- 姓名顯示區與動作按鈕 -->
+                            <div class="h-24 flex items-center justify-center relative z-10 w-full">
+                                <!-- 左側加分按鈕 -->
+                                <button id="btnLeftAction" onclick="updateScore(lastWinnerIndex, 1)"
+                                    class="hidden absolute left-0 md:left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] flex items-center justify-center transition-all animate-in slide-in-from-left-8 fade-in duration-500 hover:scale-110 active:scale-95 border-2 border-emerald-400 z-20">
+                                    <i data-lucide="plus" class="w-8 h-8"></i>
+                                </button>
+
+                                <div id="lotteryNameDisplay"
+                                    class="h-full flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 opacity-50 scale-90 transition-all duration-500 filter blur-sm leading-none pb-1">
+                                    WAITING...
+                                </div>
+
+                                <!-- 右側扣分按鈕 -->
+                                <button id="btnRightAction" onclick="updateScore(lastWinnerIndex, -1)"
+                                    class="hidden absolute right-0 md:right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.5)] flex items-center justify-center transition-all animate-in slide-in-from-right-8 fade-in duration-500 hover:scale-110 active:scale-95 border-2 border-rose-400 z-20">
+                                    <i data-lucide="minus" class="w-8 h-8"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側拉霸與控制 (Absolute position on desktop) -->
+                    <div
+                        class="mt-8 md:mt-0 md:absolute md:left-[50%] md:ml-[22rem] md:top-24 flex flex-col items-center gap-6 z-0">
+                        <div
+                            class="relative w-16 h-48 bg-slate-800 rounded-full border-4 border-slate-700 shadow-2xl flex justify-center py-4 bg-[linear-gradient(to_right,#1e293b,#334155,#1e293b)]">
+                            <!-- Track -->
+                            <div class="w-3 h-full bg-black/60 rounded-full mx-auto relative overflow-visible">
+                                <!-- Rod -->
+                                <div id="leverRod"
+                                    class="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-400 rounded-full transition-all duration-300 ease-out z-10 shadow-lg">
+                                </div>
+                                <!-- Handle Object to Click -->
+                                <button onclick="startSlotMachine()" id="btnSpin"
+                                    class="absolute -top-6 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-b-8 border-red-900 shadow-[0_10px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:brightness-110 transition-all duration-200 z-20 group outline-none flex items-center justify-center">
+                                    <div class="absolute top-3 left-4 w-5 h-5 bg-white/30 rounded-full blur-[1px]">
+                                    </div>
+                                    <span
+                                        class="font-black text-red-900/40 uppercase tracking-widest text-[10px] mt-1">SPIN</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button onclick="resetLottery()"
+                            class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-600 shadow-lg"
+                            title="重置">
+                            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- 歷史紀錄 -->
+                <div class="mt-10 max-w-2xl w-full">
+                    <div class="flex items-center gap-3 mb-4 justify-center opacity-50">
+                        <div class="h-px bg-slate-700 flex-1"></div>
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Winners Log</span>
+                        <div class="h-px bg-slate-700 flex-1"></div>
+                    </div>
+                    <div id="historyTags" class="flex flex-wrap gap-2 justify-center min-h-[40px]">
+                        <!-- Tags injected here -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 分頁 4: 班級紀錄 (新功能) -->
+        <section id="view-records" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+            <h2 class="text-2xl font-bold flex items-center gap-2 mb-6">
+                <i data-lucide="clipboard-list" class="text-sky-400"></i> 班級點名與評分紀錄
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-180px)]">
+                <!-- 左側：點名紀錄 -->
+                <div class="flex flex-col bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden">
+                    <div class="p-4 border-b border-slate-700 bg-slate-800 flex justify-between items-center">
+                        <h3 class="font-bold flex items-center gap-2 text-sky-400">
+                            <i data-lucide="calendar-check"></i> 點名紀錄
+                        </h3>
+                        <span class="text-xs text-slate-500" id="attendanceCount">0 筆</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3" id="pageAttendanceList">
+                        <!-- JS 注入內容 -->
+                    </div>
+                </div>
+
+                <!-- 右側：評分紀錄 -->
+                <div class="flex flex-col bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden">
+                    <div class="p-4 border-b border-slate-700 bg-slate-800 flex justify-between items-center">
+                        <h3 class="font-bold flex items-center gap-2 text-indigo-400">
+                            <i data-lucide="award"></i> 評分紀錄
+                        </h3>
+                        <button id="pageBtnRevoke" onclick="revokeHistory(true)" disabled
+                            class="bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                            <i data-lucide="undo-2" class="w-3 h-3"></i> 撤銷已選
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3" id="pageScoreList">
+                        <!-- JS 注入內容 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 5: 教材檔案 -->
+        <section id="view-textbook" class="hidden space-y-8 animate-in fade-in">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <i data-lucide="book-open" class="text-sky-400"></i> 教材檔案列表
+                </h2>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <select id="textbookFilterPublisher" onchange="renderTextbookGrid()"
+                            class="bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm border border-slate-700 outline-none hover:border-sky-500/50 transition-colors focus:ring-2 focus:ring-sky-500/50 cursor-pointer">
+                            <option value="All">所有版本</option>
+                            <option value="翰林">翰林</option>
+                            <option value="康軒">康軒</option>
+                            <option value="南一">南一</option>
+                            <option value="其他">其他</option>
+                        </select>
+                        <select id="textbookFilterSemester" onchange="renderTextbookGrid()"
+                            class="bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm border border-slate-700 outline-none hover:border-sky-500/50 transition-colors focus:ring-2 focus:ring-sky-500/50 cursor-pointer">
+                            <option value="All">所有學期</option>
+                            <option value="一上">一上</option>
+                            <option value="一下">一下</option>
+                            <option value="二上">二上</option>
+                            <option value="二下">二下</option>
+                            <option value="三上">三上</option>
+                            <option value="三下">三下</option>
+                            <option value="不分學期">不分學期</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-800 p-1 rounded-lg flex gap-1 border border-slate-700">
+                        <button onclick="setTextbookLayout('grid')" id="btnLayoutGrid"
+                            class="p-1.5 rounded-md bg-slate-700 text-white transition-colors" title="網格檢視">
+                            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="setTextbookLayout('list')" id="btnLayoutList"
+                            class="p-1.5 rounded-md text-slate-400 hover:text-white transition-colors" title="清單檢視">
+                            <i data-lucide="list" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <button onclick="openAddTextbookModal()"
+                        class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-900/20">
+                        <i data-lucide="plus" class="w-4 h-4"></i> 新增教材連結
+                    </button>
+                </div>
+            </div>
+
+            <input type="file" id="textbookUploadInput" accept="application/pdf" multiple class="hidden"
+                onchange="handleTextbookUpload(this)">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="textbookGrid">
+            </div>
+        </section>
+
+        <!-- PDF Preview Modal -->
+        <div id="pdfPreviewModal"
+            class="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm hidden flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+            <div
+                class="w-full max-w-6xl h-full flex flex-col glass-panel overflow-hidden shadow-2xl ring-1 ring-white/10">
+                <div class="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800/50">
+                    <h3 class="font-bold text-white flex items-center gap-2">
+                        <i data-lucide="file-text" class="text-indigo-400"></i>
+                        <span id="pdfPreviewTitle">Document Preview</span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <a id="pdfDownloadLink" href="#" download
+                            class="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                            title="下載檔案">
+                            <i data-lucide="download" class="w-5 h-5"></i>
+                        </a>
+                        <button onclick="closePdfPreview()"
+                            class="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-slate-800 relative">
+                    <iframe id="pdfPreviewFrame" class="w-full h-full" src=""></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分頁 101: 互動鍵盤 (New) -->
+        <section id="view-keyboard" class="hidden animate-in fade-in duration-500">
+            <div class="glass-panel p-8 max-w-6xl mx-auto flex flex-col items-center">
+                <div class="mb-10 w-full max-w-3xl">
+                    <div id="currentKeyDisplay"
+                        class="w-full h-24 bg-slate-900 border-2 border-slate-700 rounded-2xl flex items-center justify-center text-4xl md:text-5xl font-mono font-bold text-sky-400 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] transition-all">
+                        <span class="text-slate-600 text-2xl animate-pulse">Waiting for input...</span>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-2xl inline-flex gap-4 items-start overflow-x-auto max-w-full">
+
+                    <!-- 1. Main Block -->
+                    <div class="flex flex-col gap-1">
+                        <!-- Row 0: Esc & F-Keys -->
+                        <div class="flex gap-1 mb-4">
+                            <div class="key-cap w-10 h-10 bg-red-900/40 text-rose-300 border-rose-500/20"
+                                onclick="toggleKey(this)">Esc</div>
+                            <div class="w-8"></div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F1</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F2</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F3</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F4</div>
+                            <div class="w-4"></div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F5</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F6</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F7</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F8</div>
+                            <div class="w-4"></div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F9</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F10</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F11</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F12</div>
+                        </div>
+
+                        <!-- Row 1 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">~</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">1</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">2</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">3</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">4</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">5</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">6</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">7</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">8</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">9</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">0</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">-</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">=</div>
+                            <div class="key-cap w-20 h-10 text-xs" onclick="toggleKey(this)">Backspace</div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-[3.75rem] h-10 text-xs" onclick="toggleKey(this)">Tab</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">Q</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">W</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">E</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">R</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">T</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">Y</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">U</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">I</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">O</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">P</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">[</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">]</div>
+                            <div class="key-cap w-[3.75rem] h-10 text-xs" onclick="toggleKey(this)">\</div>
+                        </div>
+
+                        <!-- Row 3 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-[4.5rem] h-10 text-xs" onclick="toggleKey(this)">Caps</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">A</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">S</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">D</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">F</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">G</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">H</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">J</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">K</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">L</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">;</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">'</div>
+                            <div class="key-cap w-[5.75rem] h-10 text-xs bg-sky-600/20 border-sky-500/30 text-sky-200"
+                                onclick="toggleKey(this)">Enter</div>
+                        </div>
+
+                        <!-- Row 4 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-[6rem] h-10 text-xs" onclick="toggleKey(this)">Shift</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">Z</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">X</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">C</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">V</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">B</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">N</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">M</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">,</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">.</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">/</div>
+                            <div class="key-cap w-[7rem] h-10 text-xs" onclick="toggleKey(this)">Shift</div>
+                        </div>
+
+                        <!-- Row 5 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Ctrl</div>
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Win</div>
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Alt</div>
+                            <div class="key-cap w-[16.25rem] h-10" onclick="toggleKey(this)" data-key="Space"></div>
+                            <!-- Space -->
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Alt</div>
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Win</div>
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Menu</div>
+                            <div class="key-cap w-[3.25rem] h-10 text-xs" onclick="toggleKey(this)">Ctrl</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Nav Block -->
+                    <div class="flex flex-col gap-1">
+                        <!-- Row 0 -->
+                        <div class="flex gap-1 mb-4">
+                            <div class="key-cap w-10 h-10 text-[10px]" onclick="toggleKey(this)">PrtSc</div>
+                            <div class="key-cap w-10 h-10 text-[10px]" onclick="toggleKey(this)">Scroll</div>
+                            <div class="key-cap w-10 h-10 text-[10px]" onclick="toggleKey(this)">Pause</div>
+                        </div>
+
+                        <!-- Row 1 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">Ins</div>
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">Home</div>
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">PgUp</div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">Del</div>
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">End</div>
+                            <div class="key-cap w-10 h-10 text-xs" onclick="toggleKey(this)">PgDn</div>
+                        </div>
+
+                        <div class="h-[2.75rem]"></div> <!-- Spacer -->
+
+                        <!-- Row 4 Arrows -->
+                        <div class="flex gap-1 justify-center">
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)" data-key="↑">
+                                <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+
+                        <!-- Row 5 Arrows -->
+                        <div class="flex gap-1">
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)" data-key="←">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            </div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)" data-key="↓">
+                                <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                            </div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)" data-key="→">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Numpad Block -->
+                    <div class="flex flex-col gap-1">
+                        <!-- Row 0: Indicators handled by parent usually but placing keys here -->
+                        <div class="flex gap-1 mb-4">
+                            <!-- Placeholder for alignment with F-keys, maybe empty or LEDs? The design had LEDs absolutely positioned. Keeping them relative here might break alignment. Let's just have the top gap. -->
+                            <div class="h-10"></div>
+                        </div>
+                        <!-- Just start the keys aligned with Row 1 -->
+
+                        <div class="flex gap-1">
+                            <div class="key-cap w-10 h-10 text-[10px]" onclick="toggleKey(this)">Num</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">/</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">*</div>
+                            <div class="key-cap w-10 h-10" onclick="toggleKey(this)">-</div>
+                        </div>
+
+                        <div class="flex gap-1">
+                            <div class="flex flex-col gap-1">
+                                <div class="flex gap-1">
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">7</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">8</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">9</div>
+                                </div>
+                                <div class="flex gap-1">
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">4</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">5</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">6</div>
+                                </div>
+                            </div>
+                            <div class="key-cap w-10 h-[5.25rem]" onclick="toggleKey(this)">+</div>
+                        </div>
+
+                        <div class="flex gap-1">
+                            <div class="flex flex-col gap-1">
+                                <div class="flex gap-1">
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">1</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">2</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">3</div>
+                                </div>
+                                <div class="flex gap-1">
+                                    <div class="key-cap w-[5.25rem] h-10" onclick="toggleKey(this)">0</div>
+                                    <div class="key-cap w-10 h-10" onclick="toggleKey(this)">.</div>
+                                </div>
+                            </div>
+                            <div class="key-cap w-10 h-[5.25rem] bg-sky-600/20 border-sky-500/30 text-sky-200"
+                                onclick="toggleKey(this)">Ent</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mt-8 flex gap-4">
+                    <button onclick="resetKeyboard()"
+                        class="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 全部重置
+                    </button>
+                    <button onclick="switchTab('dashboard')"
+                        class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回儀表板
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 7: 競賽積分表 (新功能) -->
+        <section id="view-leaderboard" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+            <!-- 簡化後的 Header -->
+            <div class="flex flex-col items-center mb-10 mt-4">
+                <span class="text-xs font-bold tracking-[0.5em] text-orange-400 uppercase mb-2">LEADERBOARD</span>
+                <h2 class="text-4xl font-black text-white tracking-tight">積分榮譽榜</h2>
+                <div class="mt-2 text-slate-500 font-mono text-sm">CLASS <span id="leaderboardClassTitle"
+                        class="text-slate-300 font-bold">---</span></div>
+            </div>
+
+
+
+            <!-- 前三名頒獎台 -->
+            <div class="flex justify-center items-end gap-4 mb-12 min-h-[300px]" id="leaderboardPodium">
+                <!-- JS Inject -->
+            </div>
+
+            <!-- 其余排名列表 -->
+            <div class="max-w-4xl mx-auto bg-slate-800/50 rounded-3xl p-6 border border-white/5 backdrop-blur-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="leaderboardList">
+                    <!-- JS Inject -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 8: 模組化達人 (Polygon) -->
+        <section id="view-polygon" class="hidden animate-in fade-in duration-500">
+            <div class="glass-panel p-6 max-w-6xl mx-auto">
+                <h2 class="text-2xl font-bold flex items-center gap-2 mb-6">
+                    <i data-lucide="shapes" class="text-violet-400"></i> 模組化達人：多邊形繪製
+                </h2>
+
+                <!-- Main Layout: Grid changed to Flex/Grid hybrid for better fit -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-140px)]">
+
+                    <!-- Left Column: Controls & Blocks (Combined) -->
+                    <div class="lg:col-span-5 flex flex-col gap-4 h-full overflow-hidden">
+
+                        <!-- Top: Parameters -->
+                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700 space-y-3 shrink-0">
+                            <h3 class="font-bold text-slate-300 text-sm flex items-center justify-between">
+                                <span>參數設定</span>
+                            </h3>
+
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-0.5">邊數 (Sides)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="range" id="polySides" min="3" max="12" value="4" step="1"
+                                            class="flex-1 accent-orange-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                            oninput="updatePolyParams()">
+                                        <span id="polySidesVal"
+                                            class="font-mono font-bold text-orange-400 w-6 text-right text-xs">4</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-0.5">邊長 (Length)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="range" id="polyLength" min="20" max="150" value="100" step="5"
+                                            class="flex-1 accent-blue-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                            oninput="updatePolyParams()">
+                                        <span id="polyLengthVal"
+                                            class="font-mono font-bold text-blue-400 w-8 text-right text-xs">100</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-0.5">旋轉角度 (Turn)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="range" id="polyAngle" min="1" max="180" value="90" step="1"
+                                            class="flex-1 accent-pink-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                            oninput="updatePolyParams(true)">
+                                        <span id="polyAngleVal"
+                                            class="font-mono font-bold text-pink-400 w-8 text-right text-xs">90°</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 mt-1">
+                                        <input type="checkbox" id="autoAngle" checked onchange="toggleAutoAngle()"
+                                            class="w-3 h-3 rounded text-violet-500 bg-slate-700 border-slate-600 focus:ring-offset-slate-800 focus:ring-violet-500">
+                                        <label for="autoAngle"
+                                            class="text-[10px] text-slate-400 cursor-pointer select-none">自動計算</label>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-0.5">執行速度 (Speed)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="range" id="polySpeed" min="1" max="10" value="5" step="1"
+                                            class="flex-1 accent-emerald-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                                            oninput="updatePolyParams()">
+                                        <span id="polySpeedVal"
+                                            class="font-mono font-bold text-emerald-400 w-6 text-right text-xs">5x</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scratch Blocks Preview -->
+                        <div
+                            class="bg-slate-900 p-4 rounded-xl border border-slate-700 relative overflow-hidden flex flex-col flex-1 min-h-0">
+                            <div class="absolute top-0 left-0 w-2 h-full bg-yellow-500/20"></div>
+
+                            <!-- Level Tabs -->
+                            <div
+                                class="flex gap-2 mb-1 px-4 py-2 relative z-10 shrink-0 overflow-x-auto custom-scrollbar">
+                                <button onclick="setPolyLevel(1)" id="btnLevel1"
+                                    class="text-[10px] px-2 py-1 rounded-full bg-slate-700 text-white font-bold transition-all hover:bg-slate-600 border border-slate-600 ring-1 ring-transparent focus:ring-sky-500 whitespace-nowrap">
+                                    L1: 基礎
+                                </button>
+                                <button onclick="setPolyLevel(2)" id="btnLevel2"
+                                    class="text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-400 font-bold transition-all hover:bg-slate-700 border border-slate-700 ring-1 ring-transparent focus:ring-pink-500 whitespace-nowrap">
+                                    L2: 模組
+                                </button>
+                                <button onclick="setPolyLevel(3)" id="btnLevel3"
+                                    class="text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-400 font-bold transition-all hover:bg-slate-700 border border-slate-700 ring-1 ring-transparent focus:ring-orange-500 whitespace-nowrap">
+                                    L3: 邊長參數
+                                </button>
+                                <button onclick="setPolyLevel(4)" id="btnLevel4"
+                                    class="text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-400 font-bold transition-all hover:bg-slate-700 border border-slate-700 ring-1 ring-transparent focus:ring-purple-500 whitespace-nowrap">
+                                    L4: 邊長+邊數
+                                </button>
+                            </div>
+
+                            <div class="flex-1 overflow-y-auto custom-scrollbar relative pl-4 pb-4">
+                                <!-- Level 1: Linear Logic -->
+                                <div id="polyLevel1"
+                                    class="flex flex-col gap-0 items-start select-none font-sans text-sm font-bold text-white scale-90 origin-top-left -mr-8 transition-opacity duration-300">
+                                    <!-- HAT Block -->
+                                    <div
+                                        class="bg-amber-400 px-3 py-2 rounded-t-lg rounded-br-lg mb-1 shadow-sm w-full max-w-[200px] flex items-center gap-2 border border-black/10">
+                                        <span class="text-xs">當</span>
+                                        <i data-lucide="flag" class="w-3 h-3 text-green-600 fill-green-600"></i>
+                                        <span class="text-xs">被點擊</span>
+                                    </div>
+
+                                    <!-- Erase All -->
+                                    <div
+                                        class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                        筆跡全部清除
+                                    </div>
+
+                                    <!-- Pen Down -->
+                                    <div
+                                        class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                        下筆
+                                    </div>
+
+                                    <!-- Go to X Y -->
+                                    <div
+                                        class="bg-blue-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                        <span>定位到 x:</span>
+                                        <span
+                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                        <span>y:</span>
+                                        <span
+                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                    </div>
+
+                                    <!-- Repeat -->
+                                    <div
+                                        class="bg-orange-400 px-3 py-2 rounded-t rounded-br mb-0 shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 relative z-10">
+                                        <span>重複</span>
+                                        <span
+                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-sides-display">4</span>
+                                        <span>次</span>
+                                    </div>
+
+                                    <!-- Loop Content -->
+                                    <div
+                                        class="pl-3 border-l-[12px] border-orange-400 py-0.5 w-full max-w-[240px] bg-orange-400/10 rounded-r border-r border-b border-t-0 border-black/5 min-h-[80px]">
+                                        <div class="flex flex-col gap-1 my-1">
+                                            <!-- Move -->
+                                            <div
+                                                class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                <span>移動</span>
+                                                <span
+                                                    class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-length-display">100</span>
+                                                <span>點</span>
+                                            </div>
+                                            <!-- Turn -->
+                                            <div
+                                                class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                <span>右轉 <i data-lucide="rotate-cw" class="w-3 h-3 inline"></i></span>
+                                                <span
+                                                    class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-angle-display">90</span>
+                                                <span>度</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Loop End -->
+                                    <div
+                                        class="bg-orange-400 h-4 w-full max-w-[240px] rounded-b border border-t-0 border-black/10 mb-1 shadow-sm">
+                                    </div>
+                                </div>
+
+                                <!-- Level 2: Modular Logic -->
+                                <div id="polyLevel2"
+                                    class="hidden flex flex-col gap-0 items-start select-none font-sans text-sm font-bold text-white scale-90 origin-top-left -mr-8 transition-opacity duration-300">
+                                    <!-- Define Block -->
+                                    <div class="flex flex-col gap-0 w-full mb-8">
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-3 rounded-lg shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 font-bold mb-1 text-white">
+                                            <span class="text-xs">定義</span>
+                                            <span>繪製正多邊形</span>
+                                        </div>
+
+                                        <!-- Function Body -->
+                                        <div class="pl-0">
+                                            <!-- Repeat -->
+                                            <div
+                                                class="bg-orange-400 px-3 py-2 rounded-t rounded-br mb-0 shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 relative z-10">
+                                                <span>重複</span>
+                                                <span
+                                                    class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-sides-display">4</span>
+                                                <span>次</span>
+                                            </div>
+
+                                            <!-- Loop Content -->
+                                            <div
+                                                class="pl-3 border-l-[12px] border-orange-400 py-0.5 w-full max-w-[240px] bg-orange-400/10 rounded-r border-r border-b border-t-0 border-black/5 min-h-[80px]">
+                                                <div class="flex flex-col gap-1 my-1">
+                                                    <!-- Move -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>移動</span>
+                                                        <span
+                                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-length-display">100</span>
+                                                        <span>點</span>
+                                                    </div>
+                                                    <!-- Turn -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>右轉 <i data-lucide="rotate-cw"
+                                                                class="w-3 h-3 inline"></i></span>
+                                                        <span
+                                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-angle-display">90</span>
+                                                        <span>度</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Loop End -->
+                                            <div
+                                                class="bg-orange-400 h-4 w-full max-w-[240px] rounded-b border border-t-0 border-black/10 mb-1 shadow-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Main Script -->
+                                    <div class="mt-4">
+                                        <!-- HAT Block -->
+                                        <div
+                                            class="bg-amber-400 px-3 py-2 rounded-t-lg rounded-br-lg mb-1 shadow-sm w-full max-w-[200px] flex items-center gap-2 border border-black/10">
+                                            <span class="text-xs">當</span>
+                                            <i data-lucide="flag" class="w-3 h-3 text-green-600 fill-green-600"></i>
+                                            <span class="text-xs">被點擊</span>
+                                        </div>
+
+                                        <!-- Erase All -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            筆跡全部清除
+                                        </div>
+
+                                        <!-- Pen Down -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            下筆
+                                        </div>
+
+                                        <!-- Go to X Y -->
+                                        <div
+                                            class="bg-blue-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                            <span>定位到 x:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                            <span>y:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                        </div>
+
+                                        <!-- Call Function -->
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2 font-bold text-white">
+                                            <span>繪製正多邊形</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Level 3: Parameterized Logic -->
+                                <div id="polyLevel3"
+                                    class="hidden flex flex-col gap-0 items-start select-none font-sans text-sm font-bold text-white scale-90 origin-top-left -mr-8 transition-opacity duration-300">
+                                    <!-- Define Block with Parameter -->
+                                    <div class="flex flex-col gap-0 w-full mb-8">
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-3 rounded-lg shadow-sm border border-black/10 w-full max-w-[280px] flex items-center gap-2 font-bold mb-1 text-white">
+                                            <span class="text-xs">定義</span>
+                                            <span>繪製正多邊形</span>
+                                            <!-- Parameter Definition Pill -->
+                                            <div
+                                                class="bg-[#FF3355] px-2 py-1 rounded-full text-xs font-mono shadow-inner min-w-[50px] text-center border border-black/10">
+                                                邊長
+                                            </div>
+                                        </div>
+
+                                        <!-- Function Body -->
+                                        <div class="pl-0">
+                                            <!-- Repeat -->
+                                            <div
+                                                class="bg-orange-400 px-3 py-2 rounded-t rounded-br mb-0 shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 relative z-10">
+                                                <span>重複</span>
+                                                <span
+                                                    class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-sides-display">4</span>
+                                                <span>次</span>
+                                            </div>
+
+                                            <!-- Loop Content -->
+                                            <div
+                                                class="pl-3 border-l-[12px] border-orange-400 py-0.5 w-full max-w-[240px] bg-orange-400/10 rounded-r border-r border-b border-t-0 border-black/5 min-h-[80px]">
+                                                <div class="flex flex-col gap-1 my-1">
+                                                    <!-- Move (Using Parameter) -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>移動</span>
+                                                        <!-- Parameter Usage Pill -->
+                                                        <div
+                                                            class="bg-[#FF3355] px-2 py-0.5 rounded-full text-white text-xs font-mono shadow-sm min-w-[40px] text-center border border-black/10">
+                                                            邊長
+                                                        </div>
+                                                        <span>點</span>
+                                                    </div>
+                                                    <!-- Turn -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>右轉 <i data-lucide="rotate-cw"
+                                                                class="w-3 h-3 inline"></i></span>
+                                                        <span
+                                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-angle-display">90</span>
+                                                        <span>度</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Loop End -->
+                                            <div
+                                                class="bg-orange-400 h-4 w-full max-w-[240px] rounded-b border border-t-0 border-black/10 mb-1 shadow-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Main Script -->
+                                    <div class="mt-4">
+                                        <!-- HAT Block -->
+                                        <div
+                                            class="bg-amber-400 px-3 py-2 rounded-t-lg rounded-br-lg mb-1 shadow-sm w-full max-w-[200px] flex items-center gap-2 border border-black/10">
+                                            <span class="text-xs">當</span>
+                                            <i data-lucide="flag" class="w-3 h-3 text-green-600 fill-green-600"></i>
+                                            <span class="text-xs">被點擊</span>
+                                        </div>
+
+                                        <!-- Erase All -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            筆跡全部清除
+                                        </div>
+
+                                        <!-- Pen Down -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            下筆
+                                        </div>
+
+                                        <!-- Go to X Y -->
+                                        <div
+                                            class="bg-blue-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                            <span>定位到 x:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                            <span>y:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                        </div>
+
+                                        <!-- Call Function w/ Parameter -->
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[220px] flex items-center gap-2 font-bold text-white">
+                                            <span>繪製正多邊形</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-length-display text-xs text-black">100</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Level 4: Fully Parameterized -->
+                                <div id="polyLevel4"
+                                    class="hidden flex flex-col gap-0 items-start select-none font-sans text-sm font-bold text-white scale-90 origin-top-left -mr-8 transition-opacity duration-300">
+                                    <!-- Define Block with 2 Parameters -->
+                                    <div class="flex flex-col gap-0 w-full mb-8">
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-3 rounded-lg shadow-sm border border-black/10 w-full max-w-[320px] flex items-center gap-2 font-bold mb-1 text-white">
+                                            <span class="text-xs">定義</span>
+                                            <span>繪製正多邊形</span>
+                                            <!-- Param: Sides -->
+                                            <div
+                                                class="bg-[#FF3355] px-2 py-1 rounded-full text-xs font-mono shadow-inner min-w-[40px] text-center border border-black/10">
+                                                邊數
+                                            </div>
+                                            <!-- Param: Length -->
+                                            <div
+                                                class="bg-[#FF3355] px-2 py-1 rounded-full text-xs font-mono shadow-inner min-w-[40px] text-center border border-black/10">
+                                                邊長
+                                            </div>
+                                        </div>
+
+                                        <!-- Function Body -->
+                                        <div class="pl-0">
+                                            <!-- Repeat -->
+                                            <div
+                                                class="bg-orange-400 px-3 py-2 rounded-t rounded-br mb-0 shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 relative z-10">
+                                                <span>重複</span>
+                                                <!-- Side Param Usage -->
+                                                <div
+                                                    class="bg-[#FF3355] px-2 py-0.5 rounded-full text-white text-xs font-mono shadow-sm min-w-[40px] text-center border border-black/10">
+                                                    邊數
+                                                </div>
+                                                <span>次</span>
+                                            </div>
+
+                                            <!-- Loop Content -->
+                                            <div
+                                                class="pl-3 border-l-[12px] border-orange-400 py-0.5 w-full max-w-[240px] bg-orange-400/10 rounded-r border-r border-b border-t-0 border-black/5 min-h-[80px]">
+                                                <div class="flex flex-col gap-1 my-1">
+                                                    <!-- Move (Using Param) -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>移動</span>
+                                                        <div
+                                                            class="bg-[#FF3355] px-2 py-0.5 rounded-full text-white text-xs font-mono shadow-sm min-w-[40px] text-center border border-black/10">
+                                                            邊長
+                                                        </div>
+                                                        <span>點</span>
+                                                    </div>
+                                                    <!-- Turn -->
+                                                    <div
+                                                        class="bg-blue-500 px-3 py-2 rounded shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                                        <span>右轉 <i data-lucide="rotate-cw"
+                                                                class="w-3 h-3 inline"></i></span>
+                                                        <span
+                                                            class="bg-white text-black px-2 py-0.5 rounded-full min-w-[30px] text-center shadow-inner poly-angle-display">90</span>
+                                                        <span>度</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Loop End -->
+                                            <div
+                                                class="bg-orange-400 h-4 w-full max-w-[240px] rounded-b border border-t-0 border-black/10 mb-1 shadow-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Main Script -->
+                                    <div class="mt-4">
+                                        <!-- HAT Block -->
+                                        <div
+                                            class="bg-amber-400 px-3 py-2 rounded-t-lg rounded-br-lg mb-1 shadow-sm w-full max-w-[200px] flex items-center gap-2 border border-black/10">
+                                            <span class="text-xs">當</span>
+                                            <i data-lucide="flag" class="w-3 h-3 text-green-600 fill-green-600"></i>
+                                            <span class="text-xs">被點擊</span>
+                                        </div>
+
+                                        <!-- Erase All -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            筆跡全部清除
+                                        </div>
+
+                                        <!-- Pen Down -->
+                                        <div
+                                            class="bg-emerald-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px]">
+                                            下筆
+                                        </div>
+
+                                        <!-- Go to X Y -->
+                                        <div
+                                            class="bg-blue-500 px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[200px] flex items-center gap-2">
+                                            <span>定位到 x:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                            <span>y:</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[24px] text-center shadow-inner text-xs">0</span>
+                                        </div>
+
+                                        <!-- Call Function w/ 2 Parameters -->
+                                        <div
+                                            class="bg-[#FF6680] px-3 py-2 rounded mb-1 shadow-sm border border-black/10 w-full max-w-[240px] flex items-center gap-2 font-bold text-white">
+                                            <span>繪製正多邊形</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[28px] text-center shadow-inner poly-sides-display text-xs text-black">4</span>
+                                            <span
+                                                class="bg-white text-black px-2 py-0.5 rounded-full min-w-[28px] text-center shadow-inner poly-length-display text-xs text-black">100</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions Removed (Moved to Canvas) -->
+                    </div>
+
+                    <!-- Right: Canvas Area (Expanded) -->
+                    <div class="lg:col-span-7 bg-white rounded-xl shadow-inner overflow-hidden relative flex items-center justify-center h-full min-h-[400px]"
+                        id="canvasContainer">
+                        <!-- Grid Background -->
+                        <div class="absolute inset-0 z-0"
+                            style="background-image: linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px); background-size: 20px 20px;">
+                        </div>
+
+                        <!-- Canvas Controls (Overlay) -->
+                        <div class="absolute top-4 right-4 z-50 flex gap-2">
+                            <!-- Green Flag (Run) -->
+                            <button onclick="runPolygon()"
+                                class="w-12 h-12 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center transition-all shadow-lg shadow-green-500/30 active:scale-90 border-2 border-white ring-2 ring-green-200"
+                                title="執行 (Run)">
+                                <i data-lucide="flag" class="w-6 h-6 fill-current"></i>
+                            </button>
+
+                            <!-- Stop/Clear -->
+                            <button onclick="clearPolygon()"
+                                class="w-12 h-12 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center transition-all shadow-lg shadow-rose-500/30 active:scale-90 border-2 border-white ring-2 ring-rose-200"
+                                title="停止與清除 (Stop & Clear)">
+                                <i data-lucide="octagon" class="w-6 h-6 fill-current"></i>
+                            </button>
+                        </div>
+
+                        <!-- Axis -->
+                        <div class="absolute inset-0 z-0 pointer-events-none flex items-center justify-center">
+                            <div class="w-full h-px bg-slate-300"></div>
+                            <div class="absolute h-full w-px bg-slate-300"></div>
+                        </div>
+
+                        <canvas id="polyCanvas" class="relative z-10"></canvas>
+
+                        <!-- Turtle Sprite (Overlay) -->
+                        <div id="turtleSprite"
+                            class="absolute w-0 h-0 z-20 transition-none pointer-events-none flex items-center justify-center"
+                            style="top: 50%; left: 50%;">
+                            <!-- Using a CSS triangle or Lucide icon rotated -->
+                            <div id="turtleIcon" class="text-amber-500 filter drop-shadow-md">
+                                <i data-lucide="arrow-big-up" class="w-10 h-10 fill-amber-500 text-amber-500"></i>
+                            </div>
+                        </div>
+
+                        <!-- Info Overlay -->
+                        <div
+                            class="absolute top-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow border border-slate-200 text-xs text-slate-600 z-30 pointer-events-none">
+                            <p>步驟: <span id="runStep">-</span> / <span id="totalSteps">-</span></p>
+                            <p>目前角度: <span id="currentAngleVal" class="font-bold text-violet-600">90°</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 6: 設定 -->
+        <section id="view-settings" class="hidden">
+            <div class="max-w-5xl mx-auto space-y-8">
+                <!-- 課表設定區 -->
+                <div class="glass-panel p-6">
+                    <div class="flex justify-between items-center cursor-pointer select-none"
+                        onclick="toggleSettingsSection('timetable')">
+                        <h2 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                            教師課表設定
+                        </h2>
+                        <i data-lucide="chevron-down" id="chevron-timetable"
+                            class="transition-transform duration-300 rotate-180 text-sky-400"></i>
+                    </div>
+
+                    <div id="wrapper-timetable" class="grid grid-rows-[1fr] transition-all duration-300 ease-out">
+                        <div class="overflow-hidden">
+                            <div id="section-timetable" class="mt-6 animate-in slide-in-from-top-4 duration-300">
+                                <div class="flex justify-end gap-3 mb-4">
+                                    <button onclick="openTimeSettings()"
+                                        class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors border border-slate-600 shadow">
+                                        <i data-lucide="clock" class="w-4 h-4"></i> 設定時間
+                                    </button>
+                                    <button onclick="saveTimetable()"
+                                        class="bg-sky-600 hover:bg-sky-500 px-6 py-2 rounded-lg font-bold transition-colors shadow-lg shadow-sky-900/20">儲存課表</button>
+                                </div>
+                                <div class="overflow-x-auto bg-slate-800/50 rounded-xl border border-slate-700/50">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="text-slate-400 border-b border-slate-700/50 bg-slate-800">
+                                                <th class="p-3 text-left pl-4 w-14">節次/時間</th>
+                                                <th class="p-3 w-[16%]">週一</th>
+                                                <th class="p-3 w-[16%]">週二</th>
+                                                <th class="p-3 w-[16%]">週三</th>
+                                                <th class="p-3 w-[16%]">週四</th>
+                                                <th class="p-3 w-[16%]">週五</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="timetableEditor" class="divide-y divide-slate-700/50">
+                                            <!-- 由 JS 生成編輯列 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 班級名單管理 -->
+                <div class="glass-panel p-6">
+                    <div class="flex justify-between items-center cursor-pointer select-none"
+                        onclick="toggleSettingsSection('classes')">
+                        <h2 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                            班級與名單管理
+                        </h2>
+                        <i data-lucide="chevron-down" id="chevron-classes"
+                            class="transition-transform duration-300 rotate-180 text-sky-400"></i>
+                    </div>
+
+                    <div id="wrapper-classes" class="grid grid-rows-[1fr] transition-all duration-300 ease-out">
+                        <div class="overflow-hidden">
+                            <div id="section-classes" class="mt-8 animate-in slide-in-from-top-4 duration-300">
+                                <!-- 班級列表 -->
+                                <div id="settingsClassList" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                                    <!-- JS Rendered -->
+                                </div>
+
+                                <!-- 新增班級區塊 -->
+                                <div class="p-6 bg-slate-900/50 rounded-2xl border border-white/5 mb-8">
+                                    <h3 class="font-bold text-slate-300 mb-4 flex items-center gap-2">
+                                        <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-400"></i>
+                                        新增/匯入班級
+                                    </h3>
+                                    <div
+                                        class="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl mb-4 text-xs text-indigo-300">
+                                        <p class="font-bold mb-1"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                                            使用說明
+                                        </p>
+                                        每行一位學生，格式為：<code class="bg-slate-900 px-1 rounded">座號,姓名</code>。例如：<br>
+                                        01,王小明<br>
+                                        02,李大華
+                                    </div>
+                                    <div class="flex flex-col gap-4">
+                                        <textarea id="importArea" rows="4"
+                                            class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-mono text-sm focus:ring-2 focus:ring-sky-500 outline-none transition-all placeholder:text-slate-600"
+                                            placeholder="01,王小明&#10;02,李大華"></textarea>
+                                        <div class="flex gap-4">
+                                            <input type="text" id="newClassName" placeholder="班級名稱 (如: 203)"
+                                                class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 flex-1 focus:ring-2 focus:ring-sky-500 outline-none">
+                                            <button onclick="importClass()"
+                                                class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-lg font-bold transition-colors shadow-lg shadow-sky-500/20">
+                                                建立班級
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="flex justify-between items-center p-4 border border-red-500/20 rounded-xl bg-red-500/5">
+                                    <div class="flex items-center gap-4">
+                                        <div
+                                            class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
+                                            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-red-400">危險區域</h4>
+                                            <p class="text-xs text-slate-500">這將清除瀏覽器中的所有自訂資料，無法復原。</p>
+                                        </div>
+                                    </div>
+                                    <button onclick="clearAllData()"
+                                        class="bg-red-900/30 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/30 text-sm font-bold">
+                                        重置資料庫
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 評分理由設定 -->
+                <div class="glass-panel p-6">
+                    <div class="flex justify-between items-center cursor-pointer select-none"
+                        onclick="toggleSettingsSection('reasons')">
+                        <h2 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                            評分理由設定
+                        </h2>
+                        <i data-lucide="chevron-down" id="chevron-reasons"
+                            class="transition-transform duration-300 text-sky-400"></i>
+                    </div>
+
+                    <div id="wrapper-reasons" class="grid grid-rows-[0fr] transition-all duration-300 ease-out">
+                        <div class="overflow-hidden">
+                            <div id="section-reasons" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 pb-2">
+                                <!-- 加分 -->
+                                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                                    <h3 class="font-bold text-emerald-400 mb-4 flex items-center gap-2"><i
+                                            data-lucide="thumbs-up" class="w-4 h-4"></i> 加分理由</h3>
+                                    <div id="list-positive" class="space-y-2 mb-4">
+                                        <!-- JS Rendered -->
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="input-positive" placeholder="新增理由..."
+                                            class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-emerald-500 outline-none placeholder:text-slate-600 text-white">
+                                        <button onclick="addReason('positive')"
+                                            class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center justify-center transition-colors shadow-lg shadow-emerald-900/20"><i
+                                                data-lucide="plus" class="w-4 h-4"></i></button>
+                                    </div>
+                                </div>
+
+                                <!-- 扣分 -->
+                                <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                                    <h3 class="font-bold text-red-400 mb-4 flex items-center gap-2"><i
+                                            data-lucide="thumbs-down" class="w-4 h-4"></i> 扣分理由</h3>
+                                    <div id="list-negative" class="space-y-2 mb-4">
+                                        <!-- JS Rendered -->
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="input-negative" placeholder="新增理由..."
+                                            class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-red-500 outline-none placeholder:text-slate-600 text-white">
+                                        <button onclick="addReason('negative')"
+                                            class="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center justify-center transition-colors shadow-lg shadow-red-900/20"><i
+                                                data-lucide="plus" class="w-4 h-4"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Google Sheets Sync Configuration -->
+                <div class="glass-panel p-6">
+                    <div class="flex justify-between items-center cursor-pointer select-none"
+                        onclick="toggleSettingsSection('cloud')">
+                        <h2 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                            <i data-lucide="cloud" class="w-6 h-6"></i> 雲端同步設定 (Google Sheets)
+                        </h2>
+                        <i data-lucide="chevron-down" id="chevron-cloud"
+                            class="transition-transform duration-300 text-sky-400"></i>
+                    </div>
+
+                    <div id="wrapper-cloud" class="grid grid-rows-[0fr] transition-all duration-300 ease-out">
+                        <div class="overflow-hidden">
+                            <div id="section-cloud" class="mt-6 space-y-4 pb-2">
+                                <div
+                                    class="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-xl text-sm text-indigo-300">
+                                    <p class="font-bold mb-2 flex items-center gap-2">
+                                        <i data-lucide="info" class="w-4 h-4"></i> 如何使用：
+                                    </p>
+                                    <ol class="list-decimal list-inside space-y-1 opacity-90">
+                                        <li>建立一個新的 Google 試算表。</li>
+                                        <li>點擊 <strong>擴充功能</strong> > <strong>Apps Script</strong>。</li>
+                                        <li>將提供的後端程式碼貼上並儲存。</li>
+                                        <li>點擊 <strong>部署</strong> > <strong>新增部署作業</strong>。</li>
+                                        <li>選擇類型為「網頁應用程式」，並設定：
+                                            <ul class="ml-6 list-disc mt-1 text-xs">
+                                                <li>執行身分：<strong>我 (Me)</strong></li>
+                                                <li>誰可以存取：<strong>所有人 (Anyone)</strong></li>
+                                            </ul>
+                                        </li>
+                                        <li>複製並貼上生成的「網頁應用程式網址」至下方欄位。</li>
+                                    </ol>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-sm font-bold text-slate-400">Google Apps Script Web App
+                                        URL</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="gasUrlInput"
+                                            placeholder="https://script.google.com/macros/s/..."
+                                            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none transition-all">
+                                        <button onclick="saveGasUrl()"
+                                            class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-lg font-bold transition-all shadow-lg flex items-center gap-2">
+                                            <i data-lucide="save" class="w-4 h-4"></i> 儲存連線
+                                        </button>
+                                    </div>
+
+                                    <div class="mt-4 pt-4 border-t border-slate-700/50">
+                                        <input type="file" id="backupFileInput" accept=".json" class="hidden"
+                                            onchange="importOfflineFile(event)">
+                                        <div class="flex gap-4">
+                                            <button onclick="exportOfflineFile()"
+                                                class="flex-1 bg-slate-700/50 hover:bg-slate-700 hover:text-white text-slate-400 border-2 border-slate-700 border-dashed px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 group">
+                                                <i data-lucide="download"
+                                                    class="w-5 h-5 group-hover:text-sky-400 transition-colors"></i>
+                                                備份檔案 (Export)
+                                            </button>
+                                            <button onclick="triggerImportFile()"
+                                                class="flex-1 bg-slate-700/50 hover:bg-slate-700 hover:text-white text-slate-400 border-2 border-slate-700 border-dashed px-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 group">
+                                                <i data-lucide="upload"
+                                                    class="w-5 h-5 group-hover:text-emerald-400 transition-colors"></i>
+                                                還原檔案 (Import)
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2 text-center">
+                                            ※ 此功能用於手動備份與還原。<strong>系統平日會自動同步至 Google 試算表
+                                                (DB_State)</strong>，無需頻繁操作此處。
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        class="bg-slate-800/50 rounded-xl p-4 border border-white/5 flex items-center justify-between">
+                                        <div class="flex items-center gap-4">
+                                            <div class="flex items-center gap-2">
+                                                <div id="syncStatusIndicator"
+                                                    class="w-2.5 h-2.5 rounded-full bg-slate-700 shadow-lg">
+                                                </div>
+                                                <span id="syncStatusText"
+                                                    class="text-sm font-bold text-slate-400">未連線</span>
+                                            </div>
+                                            <div class="text-xs text-slate-500 border-l border-slate-700 pl-4">
+                                                最後同步：<span id="lastSyncTime" class="font-mono text-sky-400">---</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-2">
+
+                                            <button onclick="GoogleSync.push()"
+                                                class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-emerald-500/30 flex items-center gap-1">
+                                                <i data-lucide="upload" class="w-3 h-3"></i> 立即上傳
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </section>
+
+        <!-- 分頁: 教材單元詳情 -->
+        <section id="view-resource-detail" class="hidden h-[calc(100vh-100px)] flex flex-col">
+            <div class="flex items-center gap-4 mb-4 shrink-0">
+                <button onclick="switchTab('dashboard')"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg flex items-center gap-2 transition-colors border border-slate-700">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    <span class="hidden md:inline text-sm font-bold">返回首頁</span>
+                </button>
+                <div class="bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 flex-1 min-w-0">
+                    <div class="flex items-center gap-2 text-xs text-slate-400 mb-0.5">
+                        <i data-lucide="book-open" class="w-3 h-3"></i>
+                        <span id="resDetailTag" class="uppercase">TAG</span>
+                    </div>
+                    <h2 id="resDetailTitle" class="text-lg font-bold text-white truncate">單元標題</h2>
+                </div>
+            </div>
+
+            <div class="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+                <!-- Sidebar: Content List -->
+                <div id="resSidebar"
+                    class="w-full md:w-72 bg-slate-900/80 border border-slate-700 rounded-2xl flex flex-col shrink-0 overflow-hidden backdrop-blur-sm transition-all duration-300 ease-in-out relative">
+                    <div
+                        class="p-3 border-b border-slate-700/50 bg-slate-800/30 flex items-center justify-between h-[50px]">
+                        <h4 id="resSidebarTitle"
+                            class="text-sm font-bold text-slate-300 flex items-center gap-2 whitespace-nowrap overflow-hidden transition-all duration-300">
+                            <i data-lucide="list" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                            <span class="opacity-100 transition-opacity duration-300 group-[.collapsed]:opacity-0"
+                                id="resSidebarText">單元內容</span>
+                        </h4>
+                        <button onclick="toggleResSidebar()"
+                            class="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700/50 transition-colors shrink-0">
+                            <i id="resSidebarIcon" data-lucide="chevron-left"
+                                class="w-4 h-4 transition-transform duration-300"></i>
+                        </button>
+                    </div>
+                    <div id="resDetailList" class="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                        <!-- Items populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Main Viewer Area -->
+                <div id="resViewerContainer"
+                    class="flex-1 bg-slate-900 border border-slate-700 rounded-2xl relative overflow-hidden group flex flex-col">
+                    <!-- Toolbar for Fullscreen -->
+                    <div
+                        class="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur rounded-lg border border-slate-700 p-1 flex gap-1 shadow-lg">
+                        <button onclick="toggleResFullscreen()"
+                            class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
+                            title="全螢幕">
+                            <i data-lucide="maximize" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="openResExternal()"
+                            class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition-colors"
+                            title="新分頁開啟">
+                            <i data-lucide="external-link" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <iframe id="resViewerFrame" class="w-full h-full bg-slate-50 hidden" src=""
+                        allowfullscreen></iframe>
+
+                    <div id="resViewerPlaceholder"
+                        class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-4">
+                        <i data-lucide="file-search" class="w-16 h-16 opacity-50"></i>
+                        <p>請選擇左側教材內容以開始閱讀</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resource Manager Modal -->
+        <div id="resourceManagerModal"
+            class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div
+                class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-2xl p-6 shadow-2xl m-4 flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="library" class="w-5 h-5 text-indigo-400"></i> 管理教材資源
+                    </h3>
+                    <button onclick="closeResourceManager()" class="text-slate-500 hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto space-y-4 pr-2 mb-4" id="resourceEditorList">
+                    <!-- List of resources to edit -->
+                </div>
+
+                <div class="pt-4 border-t border-slate-800 flex justify-between items-center">
+                    <button onclick="addNewResource()"
+                        class="flex items-center gap-2 text-sky-400 hover:text-sky-300 font-bold text-sm">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> 新增教材卡片
+                    </button>
+                    <div class="flex gap-3">
+                        <button onclick="closeResourceManager()"
+                            class="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold text-sm">取消</button>
+                        <button onclick="saveResources()"
+                            class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-900/20 transition-all active:scale-95">儲存變更</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 狀態設定視窗 (新功能) -->
+    <div id="statusModal"
+        class="fixed inset-0 z-[130] hidden bg-slate-900/90 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <i data-lucide="user-cog" class="text-sky-400"></i> 設定學生狀態
+            </h3>
+            <div id="statusModalTarget"
+                class="text-lg font-bold text-slate-300 mb-6 text-center bg-slate-900/50 p-2 rounded-lg">
+                <!-- JS 注入姓名 -->
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="confirmStatus('present')"
+                    class="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-between group">
+                    <span><i data-lucide="check-circle" class="w-4 h-4 inline mr-2"></i> 出席 (Present)</span>
+                </button>
+
+                <div class="space-y-2">
+                    <button onclick="toggleSubOptions('absent-options')"
+                        class="w-full p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold flex items-center justify-between transition-all">
+                        <span><i data-lucide="x-circle" class="w-4 h-4 inline mr-2"></i> 缺席 (Absent)</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 opacity-50"></i>
+                    </button>
+                    <div class="grid grid-cols-2 gap-2 hidden mt-2 animate-in slide-in-from-top-2" id="absent-options">
+                        <button onclick="confirmStatus('absent', '病假')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">病假</button>
+                        <button onclick="confirmStatus('absent', '事假')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">事假</button>
+                        <button onclick="confirmStatus('absent', '公假')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">公假</button>
+                        <button onclick="confirmStatus('absent', '喪假')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">喪假</button>
+                        <button onclick="confirmStatus('absent', '曠課')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">曠課</button>
+                        <button onclick="confirmStatus('absent', '請假')"
+                            class="bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 py-2 rounded text-xs border border-rose-500/20">請假</button>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="toggleSubOptions('late-options')"
+                        class="w-full p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold flex items-center justify-between transition-all">
+                        <span><i data-lucide="clock" class="w-4 h-4 inline mr-2"></i> 遲到 (Late)</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 opacity-50"></i>
+                    </button>
+                    <div id="late-options" class="hidden p-2 bg-slate-900/50 rounded-lg animate-in slide-in-from-top-2">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-sm text-slate-400">遲到時間：</span>
+                            <input type="number" id="lateMinutes" value="10" min="1"
+                                class="bg-slate-800 border border-slate-600 rounded px-2 py-1 w-20 text-center text-sm">
+                            <span class="text-sm text-slate-400">分鐘</span>
+                        </div>
+                        <button onclick="confirmStatus('late', document.getElementById('lateMinutes').value + '分鐘')"
+                            class="w-full p-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">
+                            確認遲到
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeStatusModal()"
+                class="mt-6 w-full py-2 text-slate-500 hover:text-white text-sm">取消</button>
+        </div>
+    </div>
+
+    <!-- 分數理由選擇視窗 -->
+    <div id="scoreReasonModal"
+        class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+        <div
+            class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full transform scale-100 transition-all">
+            <div id="modalTargetDisplay"
+                class="mb-4 pb-4 border-b border-slate-700/50 min-h-[3rem] flex items-center justify-center"></div>
+            <h3 class="" id="modalTitle">
+                <i data-lucide="award"></i> 選擇評分理由
+            </h3>
+            <div class="grid grid-cols-2 gap-3 mb-4" id="reasonButtons">
+                <!-- Javascript will inject buttons here -->
+            </div>
+            <div class="flex justify-end pt-4 border-t border-slate-700">
+                <button onclick="closeScoreModal()"
+                    class="px-4 py-2 text-slate-400 hover:text-white transition-colors font-bold text-sm">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果確認視窗 -->
+    <div id="scoreResultModal"
+        class="fixed inset-0 z-[110] hidden pointer-events-none flex items-center justify-center animate-in zoom-in-95 duration-200">
+        <div class="bg-slate-800/90 backdrop-blur-xl border border-slate-600 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center"
+            id="resultContent">
+            <!-- JS Inject Here -->
+        </div>
+    </div>
+
+    <!-- 點名紀錄查詢視窗 -->
+    <div id="attendanceHistoryModal"
+        class="fixed inset-0 z-[120] hidden bg-slate-900/90 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200">
+        <div
+            class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full transform scale-100 transition-all">
+            <div id="modalTargetDisplay"
+                class="mb-4 pb-4 border-b border-slate-700/50 min-h-[3rem] flex items-center justify-center"></div>
+            <h3 class="" id="modalTitle">
+                <i data-lucide="award"></i> 選擇評分理由
+            </h3>
+            <div class="grid grid-cols-2 gap-3 mb-4" id="reasonButtons">
+                <!-- Javascript will inject buttons here -->
+            </div>
+            <div class="flex justify-end pt-4 border-t border-slate-700">
+                <button onclick="closeScoreModal()"
+                    class="px-4 py-2 text-slate-400 hover:text-white transition-colors font-bold text-sm">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 懸浮計時器 -->
+    <div id="floatingTimer"
+        class="fixed bottom-8 right-8 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl z-[200] hidden transition-all duration-300 transform scale-100 origin-bottom-right overflow-hidden flex flex-col">
+        <!-- Header (Draggable) -->
+        <div id="timerDragHandle"
+            class="bg-slate-800/50 p-4 cursor-move flex items-center justify-between border-b border-white/5 select-none active:cursor-grabbing">
+            <div class="flex items-center gap-2 text-orange-400 font-bold">
+                <i data-lucide="timer" class="w-5 h-5"></i> 課堂計時
+            </div>
+            <button onclick="toggleTimerModal()" class="text-slate-500 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 flex flex-col items-center">
+            <!-- Time Display -->
+            <div class="relative w-48 h-48 flex items-center justify-center mb-6">
+                <!-- SVG Progress Ring -->
+                <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="4" />
+                    <circle id="timerProgress" cx="50" cy="50" r="45" fill="none" stroke="#fbbf24" stroke-width="4"
+                        stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="0"
+                        class="transition-all duration-1000 ease-linear" />
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span id="timerDisplay"
+                        class="text-5xl font-black text-white tracking-widest font-mono">05:00</span>
+                    <span id="timerStatusLabel"
+                        class="text-xs text-orange-400 font-bold uppercase tracking-widest mt-2">READY</span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-4 w-full justify-center mb-6">
+                <button onclick="timerAction('toggle')" id="btnTimerToggle"
+                    class="w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 transition-all active:scale-95">
+                    <i data-lucide="play" class="w-6 h-6 fill-current"></i>
+                </button>
+                <button onclick="timerAction('reset')"
+                    class="w-12 h-12 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all active:scale-95">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Quick Set -->
+            <div class="grid grid-cols-4 gap-2 w-full">
+                <button onclick="setTimer(1)"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+1m</button>
+                <button onclick="setTimer(3)"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+3m</button>
+                <button onclick="setTimer(5)"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+5m</button>
+                <button onclick="setTimer(10)"
+                    class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg text-xs font-bold transition-colors">+10m</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+    <!-- 學生管理 Modal -->
+    <div id="studentManagerModal"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] hidden flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div
+            class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+            <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center">
+                        <i data-lucide="users" class="text-sky-400 w-5 h-5"></i>
+                    </div>
+                    管理名單 <span class="text-slate-600 mx-2">/</span> <span id="studentManagerTitle"
+                        class="text-sky-400">---</span>
+                </h3>
+                <button onclick="closeStudentManager()"
+                    class="text-slate-500 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-lg"><i
+                        data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                <!-- Add Student Form -->
+                <div class="flex gap-3 mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 items-center">
+                    <div class="flex items-center gap-2 flex-none">
+                        <span class="text-slate-500 text-xs font-bold uppercase w-8 text-center">No.</span>
+                        <input type="text" id="manageSeatNo" placeholder="01"
+                            class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-white font-mono focus:border-sky-500 outline-none">
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                        <span class="text-slate-500 text-xs font-bold uppercase">Name</span>
+                        <input type="text" id="manageName" placeholder="學生姓名"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-sky-500 outline-none">
+                    </div>
+                    <button onclick="managerAddStudent()"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center gap-2 transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4"></i> 新增
+                    </button>
+                </div>
+
+                <!-- List Header -->
+                <div
+                    class="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    <div class="col-span-2 text-center">Seat</div>
+                    <div class="col-span-4">Name</div>
+                    <div class="col-span-3 text-center">Score</div>
+                    <div class="col-span-3 text-right">Actions</div>
+                </div>
+
+                <!-- List -->
+                <div id="studentManagerList" class="space-y-1">
+                    <!-- Items -->
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl text-center">
+                <p class="text-xs text-slate-500">修改後資料將自動儲存</p>
+            </div>
+        </div>
+    </div>
+    <!-- 時間設定 Modal -->
+    <div id="timeSettingsModal"
+        class="fixed inset-0 z-[160] hidden bg-slate-900/90 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200">
+        <div
+            class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <i data-lucide="clock" class="text-sky-400"></i> 設定上課時間
+            </h3>
+
+            <div class="overflow-y-auto flex-1 pr-2 custom-scrollbar space-y-3" id="timeSettingsList">
+                <!-- JS Generated -->
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-700">
+                <button onclick="document.getElementById('timeSettingsModal').classList.add('hidden')"
+                    class="px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">取消</button>
+                <button onclick="saveTimeSettings()"
+                    class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-sky-500/20">儲存變更</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relax Modal -->
+    <div id="relaxModal"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-[200] flex items-center justify-center animate-in fade-in duration-200">
+        <div
+            class="bg-slate-900 rounded-3xl p-8 max-w-md w-full border border-slate-700 shadow-2xl transform transition-all scale-100 relative overflow-hidden">
+            <!-- Background Decoration -->
+            <div class="absolute -top-20 -right-20 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none">
+            </div>
+
+            <div class="relative z-10 flex flex-col items-center text-center">
+                <div
+                    class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-6 shadow-inner border border-slate-700">
+                    <i data-lucide="smile" class="w-8 h-8 text-pink-400"></i>
+                </div>
+
+                <h3 class="text-2xl font-black text-white mb-6 tracking-tight">冷笑話時間</h3>
+
+                <div
+                    class="bg-slate-800/50 rounded-2xl p-6 w-full mb-6 border border-slate-700/50 min-h-[120px] flex items-center justify-center flex-col gap-4">
+                    <p id="jokeQuestion" class="text-lg text-slate-300 font-bold leading-relaxed">...</p>
+                    <p id="jokeAnswer" class="text-xl text-pink-400 font-black hidden animate-in zoom-in duration-300">
+                        ...</p>
+                </div>
+
+                <div class="flex gap-3 w-full">
+                    <button onclick="showJokeAnswer()" id="btnShowAnswer"
+                        class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-all active:scale-95">
+                        看謎底
+                    </button>
+                    <button onclick="nextJoke()"
+                        class="flex-1 bg-pink-600 hover:bg-pink-500 text-white py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-pink-900/20">
+                        換一則
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('relaxModal').classList.add('hidden')"
+                class="absolute top-4 right-4 text-slate-500 hover:text-white p-2">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="js/google-sync.js"></script>
+    <script src="js/script.js"></script>
+
+    <!-- Drawing Overlay -->
+    <div id="drawingLayer" class="fixed inset-0 z-[9000] pointer-events-none hidden transition-opacity duration-300">
+        <canvas id="mainCanvas" class="w-full h-full touch-none cursor-crosshair"></canvas>
+
+        <!-- Toolbar -->
+        <div id="drawingToolbar"
+            class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-xl p-4 rounded-3xl border border-slate-700/50 shadow-2xl flex items-center gap-4 pointer-events-auto transition-all duration-500 translate-y-32 opacity-0 ring-1 ring-white/10">
+            <!-- Toolbar Content Wrapper -->
+            <div id="toolbarContent" class="flex items-center gap-4 transition-all duration-300">
+                <!-- Colors -->
+                <div class="flex gap-3 pr-5 border-r border-slate-700 items-center">
+                    <button onclick="setDrawColor('#ef4444')"
+                        class="w-10 h-10 rounded-full bg-red-500 hover:scale-110 active:scale-90 transition-all ring-2 ring-transparent focus:ring-white color-btn shadow-lg shadow-red-500/20"
+                        data-color="#ef4444"></button>
+                    <button onclick="setDrawColor('#f59e0b')"
+                        class="w-10 h-10 rounded-full bg-amber-500 hover:scale-110 active:scale-90 transition-all ring-2 ring-transparent focus:ring-white color-btn shadow-lg shadow-amber-500/20"
+                        data-color="#f59e0b"></button>
+                    <button onclick="setDrawColor('#10b981')"
+                        class="w-10 h-10 rounded-full bg-emerald-500 hover:scale-110 active:scale-90 transition-all ring-2 ring-transparent focus:ring-white color-btn shadow-lg shadow-emerald-500/20"
+                        data-color="#10b981"></button>
+                    <button onclick="setDrawColor('#3b82f6')"
+                        class="w-10 h-10 rounded-full bg-blue-500 hover:scale-110 active:scale-90 transition-all ring-2 ring-transparent focus:ring-white color-btn shadow-lg shadow-blue-500/20"
+                        data-color="#3b82f6"></button>
+                    <button onclick="setDrawColor('#ffffff')"
+                        class="w-10 h-10 rounded-full bg-white hover:scale-110 active:scale-90 transition-all ring-2 ring-transparent focus:ring-slate-400 color-btn shadow-lg shadow-white/10"
+                        data-color="#ffffff"></button>
+                </div>
+
+                <!-- Tools -->
+                <div class="flex gap-2 items-center">
+                    <button onclick="setTool('pen')" id="btnToolPen"
+                        class="p-3 bg-slate-800 text-indigo-400 ring-1 ring-indigo-500 rounded-2xl transition-all active:scale-95 tool-btn"
+                        title="畫筆">
+                        <i data-lucide="pen" class="w-6 h-6"></i>
+                    </button>
+                    <button onclick="setTool('line')" id="btnToolLine"
+                        class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95 tool-btn"
+                        title="直線">
+                        <i data-lucide="minus" class="w-6 h-6"></i>
+                    </button>
+                    <button onclick="setTool('rect')" id="btnToolRect"
+                        class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95 tool-btn"
+                        title="方形">
+                        <i data-lucide="square" class="w-6 h-6"></i>
+                    </button>
+                    <button onclick="setTool('text')" id="btnToolText"
+                        class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95 tool-btn"
+                        title="文字">
+                        <i data-lucide="type" class="w-6 h-6"></i>
+                    </button>
+
+                    <!-- Size Slider -->
+                    <div class="flex flex-col items-center mx-2 w-24">
+                        <label for="brushSize" class="text-xs text-slate-400 mb-1">粗細/大小</label>
+                        <input type="range" id="brushSize" min="2" max="50" value="4"
+                            class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            oninput="updateBrushSize(this.value)">
+                    </div>
+
+
+                    <div class="w-px h-8 bg-slate-700 mx-1"></div>
+
+                    <button onclick="setTool('eraser')" id="btnToolEraser"
+                        class="p-3 text-slate-400 hover:text-rose-300 hover:bg-slate-800 rounded-2xl transition-all active:scale-95 tool-btn"
+                        title="橡皮擦">
+                        <i data-lucide="eraser" class="w-6 h-6"></i>
+
+                    </button>
+                    <button onclick="toggleChalkboard()" id="btnChalkboard"
+                        class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95"
+                        title="黑板模式">
+                        <i data-lucide="monitor" class="w-6 h-6"></i>
+                    </button>
+                    <button onclick="undoLastAction()"
+                        class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95"
+                        title="復原 (Ctrl+Z)">
+                        <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+                    </button>
+                    <button onclick="clearCanvas()"
+                        class="p-3 text-slate-400 hover:text-rose-400 hover:bg-rose-900/20 rounded-2xl transition-all active:scale-95"
+                        title="清除全部">
+                        <i data-lucide="trash-2" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <div class="w-px h-8 bg-slate-700 mx-2"></div>
+            </div>
+
+            <!-- Minimize/Close Controls -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleToolbarCollapse()" id="btnCollapseToolbar"
+                    class="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all active:scale-95"
+                    title="縮小工具列">
+                    <i data-lucide="chevron-down" class="w-6 h-6"></i>
+                </button>
+                <button onclick="toggleDrawingMode()"
+                    class="p-3 bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 rounded-2xl transition-colors border border-slate-700 shadow-inner group"
+                    title="縮小畫布 (隱藏)">
+                    <i data-lucide="minus" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Toggle Button (Global) -->
+    <div id="fabDrawingContainer"
+        class="fixed bottom-8 right-8 z-[8000] transition-all duration-300 animate-in zoom-in duration-500">
+        <button id="fabDrawing" onclick="toggleDrawingMode()"
+            class="relative w-16 h-16 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-[0_0_30px_rgba(79,70,229,0.4)] flex items-center justify-center transition-all hover:scale-110 active:scale-95 group border-4 border-slate-900 box-content">
+            <i data-lucide="pen-tool"
+                class="w-8 h-8 group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform"></i>
+
+            <!-- Minimize Badge -->
+            <div onclick="minimizeFab(event)"
+                class="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full flex items-center justify-center border border-slate-600 shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-125 hover:rotate-90 pointer-events-auto"
+                title="最小化畫筆按鈕">
+                <i data-lucide="minus" class="w-4 h-4"></i>
+            </div>
+        </button>
+    </div>
+
+    <!-- Minimized FAB Handle -->
+    <button id="fabMinimizedHandle" onclick="restoreFab()"
+        class="fixed bottom-12 -right-2 z-[8000] w-10 h-12 bg-slate-800/90 backdrop-blur text-slate-400 hover:text-white rounded-l-xl border-y border-l border-slate-700 shadow-lg flex items-center justify-center transition-all hidden translate-x-full group hover:-translate-x-2 active:scale-95 pr-2"
+        title="展開畫筆按鈕">
+        <i data-lucide="chevron-left" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
+    </button>
+
+    <!-- Textbook Edit Modal -->
+    <div id="textbookEditModal"
+        class="fixed inset-0 z-[200] hidden bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-md">
+            <h3 id="textbookEditTitle" class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <i data-lucide="link-2" class="text-sky-400"></i> 新增/編輯教材連結
+            </h3>
+
+            <input type="hidden" id="editTplId" value="">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">教材名稱</label>
+                    <input type="text" id="editTplName" placeholder="例如: 康軒三下國語電子書"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">網址連結 (URL)</label>
+                    <input type="url" id="editTplUrl" placeholder="https://"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-400 mb-1">版本</label>
+                        <select id="editTplPublisher"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                            <option value="翰林">翰林</option>
+                            <option value="康軒">康軒</option>
+                            <option value="南一">南一</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-400 mb-1">學期</label>
+                        <select id="editTplSemester"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500 transition-colors">
+                            <option value="一上">一上</option>
+                            <option value="一下">一下</option>
+                            <option value="二上">二上</option>
+                            <option value="二下">二下</option>
+                            <option value="三上">三上</option>
+                            <option value="三下">三下</option>
+                            <option value="不分學期">不分學期</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-700">
+                <button onclick="closeTextbookEditModal()"
+                    class="px-4 py-2 text-slate-400 hover:text-white rounded-lg transition-colors hover:bg-slate-700 font-bold">取消</button>
+                <button onclick="saveTextbookEdit()"
+                    class="bg-sky-600 hover:bg-sky-500 px-6 py-2 rounded-lg text-white font-bold transition-colors shadow-[0_0_15px_rgba(14,165,233,0.3)]">儲存</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
