@@ -78,6 +78,9 @@ function doPost(e) {
         updateScoreLog(data.classesData);
         updateConfigView(data);
       }
+      if (data.textbookLinks) {
+        updateTextbookLinksView(data.textbookLinks);
+      }
       
       return ContentService.createTextOutput(JSON.stringify({
         result: "success", 
@@ -324,6 +327,28 @@ function translateStatus(status) {
   if (status === 'absent') return "缺席";
   if (status === 'late') return "遲到";
   return status;
+}
+
+function updateTextbookLinksView(links) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("View_TextbookLinks");
+  if (!sheet) sheet = ss.insertSheet("View_TextbookLinks");
+  
+  sheet.clear();
+  var headers = ["教材名稱", "連結網址"];
+  var rows = [headers];
+  
+  if (Array.isArray(links)) {
+    links.forEach(function(link) {
+      rows.push([link.name || "未命名", link.url || ""]);
+    });
+  }
+  
+  if (rows.length > 0) {
+    sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#dcfce7");
+    sheet.autoResizeColumns(1, headers.length);
+  }
 }
 ```
 

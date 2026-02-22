@@ -54,7 +54,8 @@ let lastCheckedDateStr = new Date().toDateString();
 
 // Textbook Files Logic
 // Textbook Links Logic (Synced via localStorage/Google Sheets)
-let textbookLinks = [];
+var textbookLinks = [];
+window.textbookLinks = textbookLinks;
 
 window.onload = () => {
     const saved = localStorage.getItem('it-class-master-v4');
@@ -240,6 +241,9 @@ function saveData(skipPush = false) {
     if (typeof window.teacherTimetable !== 'undefined') teacherTimetable = window.teacherTimetable;
     if (typeof window.periodTimes !== 'undefined') periodTimes = window.periodTimes;
     if (typeof window.scoreReasons !== 'undefined') scoreReasons = window.scoreReasons;
+    if (typeof window.teachingResources !== 'undefined') teachingResources = window.teachingResources;
+    if (typeof window.modules !== 'undefined') modules = window.modules;
+    if (typeof window.textbookLinks !== 'undefined') textbookLinks = window.textbookLinks;
 
     const bundle = {
         classesData: classesData,
@@ -1586,43 +1590,86 @@ function renderTextbookGrid() {
     const grid = document.getElementById('textbookGrid');
     if (!grid) return;
 
-    // "Add" card is always first and fixed
-    let html = `
-        <div onclick="openAddTextbookModal()" class="glass-panel p-6 flex flex-col items-center justify-center gap-4 text-center min-h-[200px] border-2 border-dashed border-slate-700/50 hover:border-sky-500/50 hover:bg-slate-800/50 transition-all cursor-pointer group order-first">
-            <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors shadow-inner">
-                <i data-lucide="plus" class="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition-colors"></i>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-400 group-hover:text-sky-400 transition-colors">新增教材連結</h3>
-                <p class="text-xs text-slate-500 mt-1">支援網址連結</p>
-            </div>
-        </div>
-    `;
+    let html = '';
 
-    textbookLinks.forEach((item, index) => {
-        html += `
-            <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
-                <div class="h-40 bg-slate-800 relative flex items-center justify-center overflow-hidden cursor-move">
-                    <i data-lucide="link" class="w-16 h-16 text-indigo-400/20 group-hover:scale-110 transition-transform duration-500"></i>
-                     <div class="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-60"></div>
-                     <span class="absolute bottom-2 right-2 text-[10px] font-mono bg-slate-900/80 px-2 py-0.5 rounded text-indigo-300 border border-indigo-500/30">LINK</span>
-                     <button onclick="deleteTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-rose-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="刪除連結">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                     </button>
+    if (textbookLayoutMode === 'list') {
+        grid.className = "flex flex-col gap-4";
+        textbookLinks.forEach((item, index) => {
+            html += `
+                <div class="glass-panel p-4 flex items-center gap-4 group hover:bg-slate-800/80 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
+                    <div class="cursor-move w-10 flex justify-center text-slate-600 group-hover:text-slate-400 transition-colors">
+                        <i data-lucide="grip-vertical" class="w-5 h-5"></i>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
+                        <i data-lucide="link" class="w-6 h-6 text-indigo-400/50 group-hover:text-indigo-400 transition-colors"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
+                        <p class="text-xs text-slate-500 truncate text-slate-600">${item.url}</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                            <i data-lucide="eye" class="w-4 h-4"></i> 預覽
+                        </button>
+                        <button onclick="editTextbook(${index});" class="p-2 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-colors" title="編輯連結">
+                            <i data-lucide="edit-2" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="deleteTextbook(${index});" class="p-2 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-400 transition-colors" title="刪除連結">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="p-4 flex-1 flex flex-col">
-                    <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
-                    <p class="text-xs text-slate-500 mb-4 truncate text-slate-600">${item.url}</p>
-                    <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="mt-auto w-full bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-400 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 border border-slate-700 group-hover:border-indigo-500/50">
-                        <i data-lucide="eye" class="w-4 h-4"></i> 預覽
-                    </button>
+            `;
+        });
+    } else {
+        grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
+
+        textbookLinks.forEach((item, index) => {
+            html += `
+                <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${index})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${index})">
+                    <div class="h-40 bg-slate-800 relative flex items-center justify-center overflow-hidden cursor-move">
+                        <i data-lucide="link" class="w-16 h-16 text-indigo-400/20 group-hover:scale-110 transition-transform duration-500"></i>
+                         <div class="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-60"></div>
+                         <span class="absolute bottom-2 right-2 text-[10px] font-mono bg-slate-900/80 px-2 py-0.5 rounded text-indigo-300 border border-indigo-500/30">LINK</span>
+                         <button onclick="deleteTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-rose-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="刪除連結">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                         </button>
+                          <button onclick="editTextbook(${index}); event.stopPropagation();" class="absolute top-2 right-10 p-1.5 bg-slate-900/50 hover:bg-amber-500 rounded-lg text-slate-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="編輯連結">
+                            <i data-lucide="edit-2" class="w-4 h-4"></i>
+                         </button>
+                    </div>
+                    <div class="p-4 flex-1 flex flex-col">
+                        <h3 class="font-bold text-lg leading-tight mb-1 truncate" title="${item.name}">${item.name}</h3>
+                        <p class="text-xs text-slate-500 mb-4 truncate text-slate-600">${item.url}</p>
+                        <button onclick="previewTextbookLink('${item.url}', '${item.name}')" class="mt-auto w-full bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-400 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 border border-slate-700 group-hover:border-indigo-500/50">
+                            <i data-lucide="eye" class="w-4 h-4"></i> 預覽
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `;
-    });
+            `;
+        });
+    }
 
     grid.innerHTML = html;
     lucide.createIcons();
+}
+
+let textbookLayoutMode = 'grid';
+
+function setTextbookLayout(mode) {
+    textbookLayoutMode = mode;
+
+    // Update active button state
+    document.getElementById('btnLayoutGrid').classList.toggle('bg-slate-700', mode === 'grid');
+    document.getElementById('btnLayoutGrid').classList.toggle('text-white', mode === 'grid');
+    document.getElementById('btnLayoutGrid').classList.toggle('text-slate-400', mode !== 'grid');
+
+    document.getElementById('btnLayoutList').classList.toggle('bg-slate-700', mode === 'list');
+    document.getElementById('btnLayoutList').classList.toggle('text-white', mode === 'list');
+    document.getElementById('btnLayoutList').classList.toggle('text-slate-400', mode !== 'list');
+
+    renderTextbookGrid();
 }
 
 // Drag and Drop Logic for Textbook Links
@@ -1665,6 +1712,20 @@ function filesDrop(event, targetIndex) {
 function deleteTextbook(index) {
     if (!confirm('確定要刪除這個教材連結嗎？')) return;
     textbookLinks.splice(index, 1);
+    saveData();
+    renderTextbookGrid();
+}
+
+function editTextbook(index) {
+    const item = textbookLinks[index];
+    const newName = prompt("請輸入新的教材名稱：", item.name);
+    if (!newName) return;
+    const newUrl = prompt("請輸入新的教材連結：", item.url);
+    if (!newUrl) return;
+
+    item.name = newName;
+    item.url = newUrl;
+
     saveData();
     renderTextbookGrid();
 }

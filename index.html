@@ -570,32 +570,28 @@
                 <h2 class="text-2xl font-bold flex items-center gap-2">
                     <i data-lucide="book-open" class="text-sky-400"></i> 教材檔案列表
                 </h2>
-                <button
-                    class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-900/20">
-                    <i data-lucide="upload" class="w-4 h-4"></i> 上傳教材
-                </button>
+                <div class="flex items-center gap-4">
+                    <div class="bg-slate-800 p-1 rounded-lg flex gap-1 border border-slate-700">
+                        <button onclick="setTextbookLayout('grid')" id="btnLayoutGrid"
+                            class="p-1.5 rounded-md bg-slate-700 text-white transition-colors" title="網格檢視">
+                            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="setTextbookLayout('list')" id="btnLayoutList"
+                            class="p-1.5 rounded-md text-slate-400 hover:text-white transition-colors" title="清單檢視">
+                            <i data-lucide="list" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <button onclick="openAddTextbookModal()"
+                        class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-900/20">
+                        <i data-lucide="plus" class="w-4 h-4"></i> 新增教材連結
+                    </button>
+                </div>
             </div>
 
             <input type="file" id="textbookUploadInput" accept="application/pdf" multiple class="hidden"
                 onchange="handleTextbookUpload(this)">
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="textbookGrid">
-                <!-- Upload Placeholder -->
-                <div onclick="triggerTextbookUpload()"
-                    class="glass-panel p-6 flex flex-col items-center justify-center gap-4 text-center min-h-[200px] border-2 border-dashed border-slate-700/50 hover:border-sky-500/50 hover:bg-slate-800/50 transition-all cursor-pointer group">
-                    <div
-                        class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors shadow-inner">
-                        <i data-lucide="plus"
-                            class="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition-colors"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-slate-400 group-hover:text-sky-400 transition-colors">新增教材</h3>
-                        <p class="text-xs text-slate-500 mt-1">支援 PDF 格式</p>
-                    </div>
-                </div>
-
-
-
             </div>
         </section>
 

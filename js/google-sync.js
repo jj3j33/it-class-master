@@ -100,6 +100,7 @@ const GoogleSync = {
                 scoreReasons: window.scoreReasons || scoreReasons,
                 teachingResources: window.teachingResources || teachingResources,
                 modules: window.modules || modules, // Sync Modules Order
+                textbookLinks: window.textbookLinks || textbookLinks || [], // Sync Textbook Links
                 lastActiveDate: new Date().toDateString() // Add Date to Sync
             };
 
@@ -205,6 +206,7 @@ const GoogleSync = {
                 if (data.scoreReasons) window.scoreReasons = data.scoreReasons;
                 if (data.teachingResources) window.teachingResources = data.teachingResources;
                 if (data.modules) window.modules = data.modules; // Load Modules Order
+                if (data.textbookLinks) window.textbookLinks = data.textbookLinks; // Load Textbook Links
 
                 // Save to local storage without triggering push
                 saveData(true);
@@ -219,6 +221,7 @@ const GoogleSync = {
                 if (typeof window.initClassSelector === 'function') window.initClassSelector();
                 if (typeof window.initTimetableEditor === 'function') window.initTimetableEditor();
                 if (typeof window.updateTimeAndStatus === 'function') window.updateTimeAndStatus();
+                if (typeof window.renderTextbookGrid === 'function' && window.currentTab === 'textbook') window.renderTextbookGrid();
 
                 if (window.currentTab === 'resource-detail') {
                     // Do not redirect if user is viewing resource detail
