@@ -33,8 +33,7 @@ window.teachingResources = teachingResources;
 
 // New: Dynamic Modules List
 var defaultModules = [
-    { id: 'seating', title: '座位點名', desc: '管理學生位置與出缺席', icon: 'users', color: 'sky', action: "switchTab('seating')" },
-    { id: 'textbook', title: '教材檔案', desc: '課程教科書與講義', icon: 'book-open', color: 'emerald', action: "switchTab('textbook')" },
+    { id: 'calendar', title: '行事曆', desc: '查看月曆與課程排程', icon: 'calendar-days', color: 'sky', action: "switchTab('calendar')" },
     { id: 'timer', title: '課堂計時器', desc: '懸浮式倒數計時工具', icon: 'timer', color: 'orange', action: "toggleTimerModal()" },
     { id: 'leaderboard', title: '積分排行榜', desc: '查看學生學期積分排名', icon: 'trophy', color: 'pink', action: "switchTab('leaderboard')" },
     { id: 'keyboard', title: '互動鍵盤', desc: '示範常用快捷鍵操作', icon: 'keyboard', color: 'violet', action: "switchTab('keyboard')" },
@@ -71,7 +70,7 @@ window.onload = () => {
         teachingResources = parsed.teachingResources || teachingResources;
         // Load Modules
         if (parsed.modules && Array.isArray(parsed.modules) && parsed.modules.length > 0) {
-            modules = parsed.modules;
+            modules = parsed.modules.filter(m => m.id !== 'seating' && m.id !== 'textbook');
             // Merge any new default modules that might be missing from saved data
             const savedIds = new Set(modules.map(m => m.id));
             defaultModules.forEach(dm => {
@@ -293,7 +292,7 @@ function switchTab(tabId) {
     });
 
     // Update sections
-    const sections = ['dashboard', 'seating', 'records', 'lottery', 'textbook', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon'];
+    const sections = ['dashboard', 'seating', 'records', 'lottery', 'textbook', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon', 'calendar'];
 
     // 1. First hide ALL sections to ensure clean state
     sections.forEach(s => {
@@ -317,6 +316,7 @@ function switchTab(tabId) {
             if (tabId === 'leaderboard') renderLeaderboard();
             if (tabId === 'settings') renderSettingsPage();
             if (tabId === 'polygon') initPolygon();
+            if (tabId === 'calendar') renderCalendar();
             if (tabId === 'textbook') renderTextbookGrid();
         } catch (e) {
             console.error(`Error initializing ${tabId}:`, e);
@@ -651,8 +651,10 @@ function updateLayout() {
     data.config.cols = cols;
     data.config.rows = rows;
 
-    // Reflow with new config
-    reflowClassLayout(currentClass);
+    // Reflow with new config (only if NOT manually adjusted)
+    if (!data.config.isManualLayout) {
+        reflowClassLayout(currentClass);
+    }
 
     // 修正佈局後，原本的選取位置已失效，必須清除
     selectedIndices.clear();
@@ -660,47 +662,87 @@ function updateLayout() {
 }
 
 // --- 核心排位邏輯 (Reflow) ---
-function reflowClassLayout(cls) {
+function reflowClassLayout(cls, forceReflow = false) {
     const data = classesData[cls];
     if (!data) return;
 
+    if (data.config.isManualLayout && !forceReflow) return;
+
     const cols = data.config.cols;
     const rows = data.config.rows;
+    const layoutMode = data.config.layoutMode || 'rtl';
 
-    // Get all students and sort by SeatNo
     const allStudents = Object.values(data.students).filter(s => s);
-    allStudents.sort((a, b) => {
-        const noA = parseInt(a.seatNo.replace(/[^\d]/g, '')) || 0;
-        const noB = parseInt(b.seatNo.replace(/[^\d]/g, '')) || 0;
-        return noA - noB;
-    });
-
     const newMap = {};
 
-    // 規則：依座號排序 -> 右下角開始為1號 -> 該欄由下往上排 -> 排滿換左邊一欄
-    allStudents.forEach((student, k) => {
-        // k=0 是 1號
-        // 計算邏輯座標：右數第幾欄 (0-based), 下數第幾列 (0-based)
-        const colFromRight = Math.floor(k / rows);
-        const rowFromBottom = k % rows;
+    const overflowStudents = [];
 
-        // 轉換實際 Grid 座標：左數第幾欄, 上數第幾列
-        const c = (cols - 1) - colFromRight;
-        const r = (rows - 1) - rowFromBottom;
+    // 第一階段：按照座號放入對應空位
+    allStudents.forEach((student) => {
+        const seatNum = parseInt(student.seatNo.replace(/[^\d]/g, '')) || 0;
+        if (seatNum <= 0) {
+            overflowStudents.push(student);
+            return;
+        }
 
-        // 轉為一維陣列 Index (Grid Key)
-        const flatIndex = r * cols + c;
+        const p = seatNum - 1;
+        const colIndex = Math.floor(p / rows);
+        const rowFromBottom = p % rows;
 
-        // If grid is full (shouldn't happen if checked), we just append? 
-        // But flatIndex might be weird if k >= cols*rows. 
-        // For now assume capacity is checked or sufficient.
-        if (c >= 0 && r >= 0) {
-            newMap[flatIndex] = student;
+        let c, r;
+        if (layoutMode === 'ltr') {
+            c = colIndex; // 左到右
+        } else {
+            c = (cols - 1) - colIndex; // 右到左
+        }
+        r = (rows - 1) - rowFromBottom; // 下到上
+
+        if (c < 0 || c >= cols || r < 0 || r >= rows) {
+            overflowStudents.push(student);
+        } else {
+            const flatIndex = r * cols + c;
+            if (newMap[flatIndex] === undefined) {
+                newMap[flatIndex] = student;
+            } else {
+                overflowStudents.push(student);
+            }
+        }
+    });
+
+    // 第二階段：處理超出網格或衝突的學生
+    let searchIndex = 0;
+    overflowStudents.forEach(student => {
+        while (searchIndex < cols * rows && newMap[searchIndex] !== undefined) {
+            searchIndex++;
+        }
+        if (searchIndex < cols * rows) {
+            newMap[searchIndex] = student;
+            searchIndex++;
         }
     });
 
     data.students = newMap;
     saveData();
+}
+
+// 新增切換排序模式
+function updateLayoutMode() {
+    const layoutMode = document.getElementById('gridLayoutMode').value;
+    const data = classesData[currentClass];
+    data.config.layoutMode = layoutMode;
+    data.config.isManualLayout = false; // Reset manual layout when sorting rule changes
+    reflowClassLayout(currentClass, true);
+    selectedIndices.clear();
+    renderSeating();
+}
+
+// 新增強制重新排列
+function resetLayoutSort() {
+    const data = classesData[currentClass];
+    data.config.isManualLayout = false;
+    reflowClassLayout(currentClass, true);
+    selectedIndices.clear();
+    renderSeating();
 }
 
 let draggedSeatIndex = null;
@@ -721,6 +763,11 @@ function renderSeating() {
 
     document.getElementById('gridCols').value = config.cols;
     document.getElementById('gridRows').value = config.rows;
+
+    const layoutModeSelect = document.getElementById('gridLayoutMode');
+    if (layoutModeSelect) {
+        layoutModeSelect.value = config.layoutMode || 'rtl';
+    }
 
     // 更新全選按鈕與計數
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
@@ -782,6 +829,16 @@ function renderSeating() {
                 statusIcon = `<i data-lucide="clock" class="w-3 h-3 text-amber-500"></i>`;
             }
 
+            let genderAccent = '';
+            if (s.gender) {
+                const g = s.gender.toLowerCase();
+                if (g === '男' || g === 'm' || g === 'boy' || g === 'male') {
+                    genderAccent = '<div class="absolute left-0 top-0 bottom-0 w-1 bg-sky-500/80 z-30 shadow-[2px_0_8px_rgba(14,165,233,0.5)] pointer-events-none"></div>';
+                } else if (g === '女' || g === 'f' || g === 'girl' || g === 'female') {
+                    genderAccent = '<div class="absolute left-0 top-0 bottom-0 w-1 bg-pink-500/80 z-30 shadow-[2px_0_8px_rgba(236,72,153,0.5)] pointer-events-none"></div>';
+                }
+            }
+
             slot.innerHTML = `
                     <div class="student-card w-full h-full relative group select-none transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98]"
                          draggable="true" 
@@ -790,6 +847,7 @@ function renderSeating() {
                         
                         <!-- 卡片本體 -->
                         <div class="absolute inset-0 rounded-xl border backdrop-blur-sm shadow-sm transition-all duration-300 ${statusColorClass} ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-900/20 z-10' : 'hover:border-slate-500 hover:shadow-md hover:bg-slate-800/80'} flex flex-col overflow-hidden">
+                            ${genderAccent}
                             
                             <!-- 頂部資訊列: 座號 & 分數 -->
                             <div class="flex justify-between items-start p-2 z-20">
@@ -905,6 +963,9 @@ function handleDrop(e, targetIndex) {
             // 如果目標是空的，刪除來源位置的參照
             delete data.students[draggedSeatIndex];
         }
+
+        // 標記為手動排列
+        data.config.isManualLayout = true;
 
         // 若有選取狀態，也需要一併轉移 (這裡簡單起見先清空選取，避免混淆)
         selectedIndices.clear();
@@ -1717,8 +1778,8 @@ function renderTextbookGrid() {
     if (textbookLayoutMode === 'list') {
         grid.className = "flex flex-col gap-4";
         filteredLinks.forEach((item) => {
-            const pubBadge = item.publisher ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs ml-2">${item.publisher}</span>` : '';
-            const semBadge = item.semester ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs ml-2">${item.semester}</span>` : '';
+            const pubBadge = item.publisher ? `<span class="bg-sky-600/20 text-sky-400 px-2 py-0.5 rounded text-xs ml-2">${item.publisher}</span>` : '';
+            const semBadge = item.semester ? `<span class="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs ml-2">${item.semester}</span>` : '';
             html += `
                 <div class="glass-panel p-4 flex items-center gap-4 group hover:bg-slate-800/80 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${item.id})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${item.id})">
                     <div class="cursor-move w-10 flex justify-center text-slate-600 group-hover:text-slate-400 transition-colors">
@@ -1750,8 +1811,8 @@ function renderTextbookGrid() {
         grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
 
         filteredLinks.forEach((item) => {
-            const pubBadge = item.publisher ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs mr-1">${item.publisher}</span>` : '';
-            const semBadge = item.semester ? `<span class="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs">${item.semester}</span>` : '';
+            const pubBadge = item.publisher ? `<span class="bg-sky-600/20 text-sky-400 px-2 py-0.5 rounded text-xs mr-1">${item.publisher}</span>` : '';
+            const semBadge = item.semester ? `<span class="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs">${item.semester}</span>` : '';
             html += `
                 <div class="glass-panel p-0 overflow-hidden flex flex-col group hover:ring-2 hover:ring-indigo-500/50 transition-all draggable-file" draggable="true" ondragstart="dragStart(event, ${item.id})" ondragover="dragOver(event)" ondrop="filesDrop(event, ${item.id})">
                     <div class="h-40 bg-slate-800 relative flex items-center justify-center overflow-hidden cursor-move">
@@ -1983,7 +2044,7 @@ function deleteClass(cls) {
         if (remaining.length > 0) {
             currentClass = remaining[0];
         } else {
-            classesData['default'] = { students: {}, history: [], seatingLayout: [], attendanceLogs: [] };
+            classesData['default'] = { students: {}, history: [], seatingLayout: [], attendanceLogs: [], config: { cols: 4, rows: 8 } };
             currentClass = 'default';
         }
     }
@@ -2027,8 +2088,11 @@ function renderStudentManagerList() {
     listEl.innerHTML = students.map(s => `
                 <div class="grid grid-cols-12 gap-4 items-center bg-slate-800/30 p-3 rounded-xl border border-white/5 hover:bg-slate-800 transition-colors group">
                     <div class="col-span-2 text-center font-mono font-bold text-slate-300 bg-slate-900 rounded-lg py-1">${s.seatNo}</div>
-                    <div class="col-span-4 font-bold text-white truncate">${s.name}</div>
-                    <div class="col-span-3 text-center font-mono text-yellow-500">${s.score || 0}</div>
+                    <div class="col-span-3 font-bold text-white truncate">${s.name}</div>
+                    <div class="col-span-2 text-center text-sm font-bold text-slate-400">
+                        ${s.gender ? (['男', 'm', 'boy', 'male'].includes(s.gender.toLowerCase()) ? '<span class="text-sky-400">男</span>' : (['女', 'f', 'girl', 'female'].includes(s.gender.toLowerCase()) ? '<span class="text-pink-400">女</span>' : s.gender)) : '-'}
+                    </div>
+                    <div class="col-span-2 text-center font-mono text-yellow-500">${s.score || 0}</div>
                     <div class="col-span-3 text-right flex justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                          <button onclick="editStudent('${s.seatNo}')" class="p-1.5 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500 hover:text-white transition-colors" title="編輯">
                             <i data-lucide="pencil" class="w-4 h-4"></i>
@@ -2050,6 +2114,7 @@ function editStudent(seatNo) {
     if (student) {
         document.getElementById('manageSeatNo').value = student.seatNo;
         document.getElementById('manageName').value = student.name;
+        document.getElementById('manageGender').value = student.gender || '';
         document.getElementById('manageName').focus(); // Focus name for quick edit
     }
 }
@@ -2058,8 +2123,10 @@ function managerAddStudent() {
     if (!managingClass) return;
     const seatInput = document.getElementById('manageSeatNo');
     const nameInput = document.getElementById('manageName');
+    const genderInput = document.getElementById('manageGender');
     const seatNo = seatInput.value.trim().padStart(2, '0');
     const name = nameInput.value.trim();
+    const gender = genderInput ? genderInput.value.trim() : '';
 
     if (!seatNo || !name) {
         alert('請輸入座號與姓名');
@@ -2077,6 +2144,7 @@ function managerAddStudent() {
 
         const existingStudent = classesData[managingClass].students[existingKey];
         existingStudent.name = name;
+        existingStudent.gender = gender;
         // seatNo is same
     } else {
         // New Student
@@ -2084,6 +2152,7 @@ function managerAddStudent() {
             id: seatNo,
             seatNo: seatNo,
             name: name,
+            gender: gender,
             score: 0,
             status: 'present',
             note: '',
@@ -2101,6 +2170,7 @@ function managerAddStudent() {
     // Clear inputs
     seatInput.value = '';
     nameInput.value = '';
+    if (genderInput) genderInput.value = '';
     seatInput.focus();
 }
 
@@ -2596,9 +2666,11 @@ function importClass() {
         if (parts.length >= 2) {
             const seatNo = parts[0].trim();
             const sName = parts[1].trim();
+            const sGender = parts[2] ? parts[2].trim() : '';
             newStudents[seatNo] = {
                 seatNo: seatNo,
                 name: sName,
+                gender: sGender,
                 score: 0,
                 status: 'present',
                 note: ''
@@ -2614,7 +2686,7 @@ function importClass() {
         history: [],
         seatingLayout: [], // default empty
         attendanceLogs: [],
-        config: { cols: 6, rows: 8 } // Default config
+        config: { cols: 4, rows: 8 } // Default config
     };
 
     saveData();
@@ -4668,3 +4740,67 @@ function restoreFab() {
     }
 }
 
+// --- Calendar Logic ---
+let currentCalendarDate = new Date();
+
+function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const label = document.getElementById('currentCalendarMonthLabel');
+    if (!grid || !label) return;
+
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+
+    label.innerText = `${year}年 ${String(month + 1).padStart(2, '0')}月`;
+
+    grid.innerHTML = '';
+
+    // Get first day of month (0 = Sunday) and total days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+
+    // Fill empty days before 1st
+    for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div class="p-2 min-h-[80px] rounded-xl bg-slate-800/10 border border-slate-700/10"></div>`;
+    }
+
+    // Fill days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+        const currentDayOfWeek = new Date(year, month, day).getDay();
+        const isWeekend = currentDayOfWeek === 0 || currentDayOfWeek === 6;
+
+        let dayClass = "p-3 h-24 rounded-xl flex flex-col items-start justify-start border transition-all hover:bg-slate-700/50 hover:-translate-y-1 shadow-sm relative group ";
+        let numClass = "font-mono font-bold text-lg ";
+
+        if (isToday) {
+            dayClass += "bg-sky-500/10 border-sky-500 shadow-[inset_0_0_15px_rgba(14,165,233,0.2)]";
+            numClass += "text-sky-400 bg-sky-500/20 px-2 py-0.5 rounded-full";
+        } else {
+            dayClass += "bg-slate-800/40 border-slate-700 hover:border-slate-500";
+            numClass += isWeekend ? "text-rose-400" : "text-slate-300";
+        }
+
+        grid.innerHTML += `
+            <div class="${dayClass}">
+                <span class="${numClass} mb-1">${day}</span>
+                <div class="flex-1 w-full flex flex-col gap-1 overflow-y-auto hide-scrollbar">
+                    <!-- Events will go here if any -->
+                </div>
+            </div>
+        `;
+    }
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function changeCalendarMonth(delta) {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+    renderCalendar();
+}
+
+function resetCalendarToToday() {
+    currentCalendarDate = new Date();
+    renderCalendar();
+}

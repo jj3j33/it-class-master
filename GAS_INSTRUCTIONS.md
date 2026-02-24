@@ -18,12 +18,6 @@
  * Handles data synchronization between the web app and Google Sheets.
  */
 
-/**
- * IT Class Master Sync Backend
- * Handles data synchronization between the web app and Google Sheets.
- */
-
-
 function doGet(e) {
   var action = e.parameter.action;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -165,7 +159,7 @@ function updateRosterView(classesData) {
   if (!sheet) sheet = ss.insertSheet("View_Roster");
   
   sheet.clear();
-  var headers = ["Class", "Seat No", "Name", "Score", "Status", "Note"];
+  var headers = ["Class", "Seat No", "Name", "Gender", "Score", "Status", "Note"];
   var rows = [headers];
   
   for (var className in classesData) {
@@ -180,7 +174,7 @@ function updateRosterView(classesData) {
       
       sortedKeys.forEach(function(key){
         var s = students[key];
-        rows.push([className, "'" + s.seatNo, s.name, s.score, translateStatus(s.status), s.note]);
+        rows.push([className, "'" + s.seatNo, s.name, s.gender || "", s.score, translateStatus(s.status), s.note]);
       });
     } catch(e) {}
   }
