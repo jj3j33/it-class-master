@@ -56,6 +56,9 @@ let lastCheckedDateStr = new Date().toDateString();
 var textbookLinks = [];
 window.textbookLinks = textbookLinks;
 
+var sysSettings = { defaultCols: 6, defaultRows: 8, defaultLayoutMode: 'rtl' };
+window.sysSettings = sysSettings;
+
 window.onload = () => {
     const saved = localStorage.getItem('it-class-master-v4');
     if (saved) {
@@ -63,9 +66,9 @@ window.onload = () => {
         classesData = parsed.classesData || classesData;
         teacherTimetable = parsed.teacherTimetable || teacherTimetable;
         periodTimes = parsed.periodTimes || periodTimes;
-        periodTimes = parsed.periodTimes || periodTimes;
         scoreReasons = parsed.scoreReasons || scoreReasons;
-        scoreReasons = parsed.scoreReasons || scoreReasons;
+        teachingResources = parsed.teachingResources || teachingResources;
+        sysSettings = parsed.sysSettings || sysSettings;
         teachingResources = parsed.teachingResources || teachingResources;
         teachingResources = parsed.teachingResources || teachingResources;
         // Load Modules
@@ -243,15 +246,16 @@ function saveData(skipPush = false) {
     if (typeof window.teachingResources !== 'undefined') teachingResources = window.teachingResources;
     if (typeof window.modules !== 'undefined') modules = window.modules;
     if (typeof window.textbookLinks !== 'undefined') textbookLinks = window.textbookLinks;
+    if (typeof window.sysSettings !== 'undefined') sysSettings = window.sysSettings;
 
     const bundle = {
         classesData: classesData,
         teacherTimetable: teacherTimetable,
         periodTimes: periodTimes,
-        periodTimes: periodTimes,
         scoreReasons: scoreReasons,
         teachingResources: teachingResources,
         textbookLinks: textbookLinks, // Save Textbook Links
+        sysSettings: sysSettings,
         currentClass: currentClass,
         lastActiveDate: new Date().toDateString()
     };
@@ -672,10 +676,26 @@ function reflowClassLayout(cls, forceReflow = false) {
     const rows = data.config.rows;
     const layoutMode = data.config.layoutMode || 'rtl';
 
+    const unavailableSeats = data.config.unavailableSeats || [];
     const allStudents = Object.values(data.students).filter(s => s);
     const newMap = {};
 
     const overflowStudents = [];
+
+    // --- 新增：產生可用的順序插槽 ---
+    const availableOrderedSlots = [];
+    for (let i = 0; i < cols * rows; i++) {
+        const colIndex = Math.floor(i / rows);
+        const rowFromBottom = i % rows;
+
+        let c = layoutMode === 'ltr' ? colIndex : (cols - 1) - colIndex;
+        let r = (rows - 1) - rowFromBottom;
+        const flatIndex = r * cols + c;
+
+        if (!unavailableSeats.includes(flatIndex)) {
+            availableOrderedSlots.push(flatIndex);
+        }
+    }
 
     // 第一階段：按照座號放入對應空位
     allStudents.forEach((student) => {
@@ -686,33 +706,23 @@ function reflowClassLayout(cls, forceReflow = false) {
         }
 
         const p = seatNum - 1;
-        const colIndex = Math.floor(p / rows);
-        const rowFromBottom = p % rows;
-
-        let c, r;
-        if (layoutMode === 'ltr') {
-            c = colIndex; // 左到右
-        } else {
-            c = (cols - 1) - colIndex; // 右到左
-        }
-        r = (rows - 1) - rowFromBottom; // 下到上
-
-        if (c < 0 || c >= cols || r < 0 || r >= rows) {
-            overflowStudents.push(student);
-        } else {
-            const flatIndex = r * cols + c;
+        if (p < availableOrderedSlots.length) {
+            const flatIndex = availableOrderedSlots[p];
             if (newMap[flatIndex] === undefined) {
                 newMap[flatIndex] = student;
             } else {
                 overflowStudents.push(student);
             }
+        } else {
+            // 座號超出可用座位數量
+            overflowStudents.push(student);
         }
     });
 
     // 第二階段：處理超出網格或衝突的學生
     let searchIndex = 0;
     overflowStudents.forEach(student => {
-        while (searchIndex < cols * rows && newMap[searchIndex] !== undefined) {
+        while (searchIndex < cols * rows && (newMap[searchIndex] !== undefined || unavailableSeats.includes(searchIndex))) {
             searchIndex++;
         }
         if (searchIndex < cols * rows) {
@@ -751,6 +761,8 @@ function renderSeating() {
     const grid = document.getElementById('seatingGrid');
     const data = classesData[currentClass];
     const { config, students } = data;
+
+    if (!config.pcNumbers) config.pcNumbers = {};
 
     // 更新工具列狀態
     // Count active (non-absent) students
@@ -849,27 +861,31 @@ function renderSeating() {
                         <div class="absolute inset-0 rounded-xl border backdrop-blur-sm shadow-sm transition-all duration-300 ${statusColorClass} ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-900/20 z-10' : 'hover:border-slate-500 hover:shadow-md hover:bg-slate-800/80'} flex flex-col overflow-hidden">
                             ${genderAccent}
                             
-                            <!-- 頂部資訊列: 座號 & 分數 -->
+                                <!-- 頂部資訊列: 電腦編號 & 分數 -->
                             <div class="flex justify-between items-start p-2 z-20">
                                 <div class="flex flex-col items-start" onclick="toggleSelection(${i}); event.stopPropagation();">
-                                   <!-- 座號 Badge -->
-                                   <div class="font-mono text-sm font-bold text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/50 flex items-center gap-1 cursor-pointer hover:bg-slate-800 hover:text-sky-400 transition-colors">
-                                       ${isSelected ? '<i data-lucide="check" class="w-3.5 h-3.5 text-indigo-400"></i>' : '<span class="w-3.5 inline-block text-center">#</span>'}
-                                       ${s.seatNo}
+                                   <!-- 電腦編號 Badge -->
+                                   <div class="font-mono text-xs font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/80 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/50 border-slate-700/50 hover:bg-sky-900/80 hover:text-sky-300 opacity-30 group-hover:opacity-100'}"
+                                        title="設定電腦編號(Shift+點擊可設為不開放座位)"
+                                        onclick="if (event.shiftKey) { toggleSeatAvailability(${i}); } else { setPcNumber(${i}); } event.stopPropagation();">
+                                       ${isSelected ? '<i data-lucide="check" class="w-3.5 h-3.5 text-indigo-400"></i>' : '<i data-lucide="monitor" class="w-3 h-3 inline-block -mt-0.5 pointer-events-none"></i>'}
+                                       <span class="pointer-events-none">${config.pcNumbers[i] || '+'}</span>
                                    </div>
                                 </div>
                                 
-                                <!-- 分數 Badge -->
-                                <div class="box-score font-mono font-black text-sm px-2 py-0.5 rounded-md flex items-center shadow-sm backdrop-blur-md cursor-default ${scoreClass}">
-                                    ${s.score > 0 ? '+' : ''}${s.score}
+                                <div class="flex items-center gap-1.5">
+                                    <!-- 分數 Badge -->
+                                    <div class="box-score font-mono font-black text-sm px-2 py-0.5 rounded-md flex items-center shadow-sm backdrop-blur-md cursor-default ${scoreClass}">
+                                        ${s.score > 0 ? '+' : ''}${s.score}
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- 主要內容: 名字 -->
+                            <!-- 主要內容: 座號與名字 -->
                             <div class="flex-1 flex flex-col items-center justify-center -mt-1 px-1 relative z-10 cursor-pointer" 
                                  onclick="openStatusModal(${i})" title="設定狀態">
                                 <div class="font-bold text-base text-slate-200 tracking-wide text-center leading-tight drop-shadow-md group-hover:text-white transition-colors truncate w-full px-1">
-                                    ${s.name}
+                                    <span class="text-slate-400 font-mono text-sm mr-1">${s.seatNo}</span>${s.name}
                                 </div>
                                 
                                 <!-- 詳細狀態標籤 (若有) -->
@@ -899,8 +915,30 @@ function renderSeating() {
                         </div>
                     </div>`;
         } else {
-            slot.className += ` border-slate-800 bg-slate-900/30 opacity-50`;
-            slot.innerHTML = `<div class="w-full h-full flex items-center justify-center text-slate-700/50 pointer-events-none"><i data-lucide="box-select" class="w-6 h-6"></i></div>`;
+            const isUnavailable = config.unavailableSeats && config.unavailableSeats.includes(i);
+            const emptyPcBadge = `
+                <div class="absolute top-2 left-2 z-40 font-mono text-xs font-bold px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/60 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/30 border-slate-700/30 hover:bg-sky-900/60 hover:text-sky-300 opacity-0 group-hover:opacity-100'}"
+                     title="設定電腦編號"
+                     onclick="setPcNumber(${i}); event.stopPropagation();">
+                    <i data-lucide="monitor" class="w-3 h-3 inline-block -mt-0.5 text-slate-500"></i> <span class="pointer-events-none">${config.pcNumbers[i] || '+'}</span>
+                </div>`;
+
+            if (isUnavailable) {
+                slot.className += ` border-rose-900/30 bg-rose-900/10 opacity-30 cursor-pointer hover:opacity-80`;
+                slot.innerHTML = `
+                    ${emptyPcBadge}
+                    <div class="w-full h-full flex items-center justify-center text-rose-500/50" onclick="toggleSeatAvailability(${i})" title="恢復開放座位"><i data-lucide="ban" class="w-6 h-6"></i></div>`;
+                // 取消拖曳目標屬性
+                slot.removeAttribute('ondragover');
+                slot.removeAttribute('ondrop');
+                slot.removeAttribute('ondragenter');
+                slot.removeAttribute('ondragleave');
+            } else {
+                slot.className += ` border-slate-800 bg-slate-900/30 opacity-50 cursor-pointer hover:opacity-80`;
+                slot.innerHTML = `
+                    ${emptyPcBadge}
+                    <div class="w-full h-full flex items-center justify-center text-slate-700/50" onclick="toggleSeatAvailability(${i})" title="設為不開放座位"><i data-lucide="box-select" class="w-6 h-6"></i></div>`;
+            }
         }
         grid.appendChild(slot);
     }
@@ -972,6 +1010,185 @@ function handleDrop(e, targetIndex) {
 
         saveData();
         renderSeating();
+    }
+}
+
+function toggleSeatAvailability(index) {
+    const data = classesData[currentClass];
+    if (!data.config.unavailableSeats) {
+        data.config.unavailableSeats = [];
+    }
+    const idx = data.config.unavailableSeats.indexOf(index);
+    const isOccupied = data.students && data.students[index] !== undefined;
+
+    if (idx > -1) {
+        data.config.unavailableSeats.splice(idx, 1);
+        if (isOccupied || !data.config.isManualLayout) {
+            data.config.isManualLayout = false; // 強制重新排列以填補空缺
+            reflowClassLayout(currentClass, true);
+        }
+    } else {
+        data.config.unavailableSeats.push(index);
+        if (isOccupied) {
+            data.config.isManualLayout = false; // 強制重新排列以擠出學生
+            reflowClassLayout(currentClass, true);
+        }
+    }
+    selectedIndices.clear();
+    saveData();
+    renderSeating();
+}
+
+function setPcNumber(index) {
+    const data = classesData[currentClass];
+    if (!data.config.pcNumbers) data.config.pcNumbers = {};
+
+    const currentNum = data.config.pcNumbers[index] || '';
+    const newNum = prompt("請輸入此座位的電腦編號 (留空則清除)：", currentNum);
+
+    if (newNum !== null) {
+        if (newNum.trim() === '') {
+            delete data.config.pcNumbers[index];
+        } else {
+            data.config.pcNumbers[index] = newNum.trim();
+        }
+        saveData();
+        renderSeating();
+    }
+}
+// --- 匯出座位表圖片 ---
+function exportSeatingChart() {
+    const grid = document.getElementById('seatingGrid');
+    if (!grid) return;
+
+    const exportBtn = document.querySelector('button[onclick="exportSeatingChart()"]');
+    const originalText = exportBtn ? exportBtn.innerHTML : '';
+    if (exportBtn) exportBtn.innerHTML = '<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> 匯出中...';
+    lucide.createIcons();
+
+    setTimeout(() => {
+        html2canvas(grid, {
+            backgroundColor: '#0f172a', // match app background (slate-900)
+            scale: 2, // high res
+            logging: false,
+            useCORS: true,
+            onclone: (clonedDoc) => {
+                // Ensure export mode applies to clone since body classes might not inherit correctly
+                clonedDoc.body.classList.add('export-mode');
+            }
+        }).then(canvas => {
+            const link = document.createElement('a');
+            const dateStr = new Date().toISOString().split('T')[0];
+            link.download = `座位表_${currentClass}_${dateStr}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            if (exportBtn) exportBtn.innerHTML = originalText;
+        }).catch(err => {
+            console.error('Export failed:', err);
+            alert('匯出圖片失敗，請稍後再試。');
+            if (exportBtn) exportBtn.innerHTML = originalText;
+        });
+    }, 100);
+}
+
+// --- 套用設定至其他班級邏輯 ---
+function openApplySettingsModal() {
+    const modal = document.getElementById('applySettingsModal');
+    const list = document.getElementById('targetClassesList');
+    list.innerHTML = '';
+
+    let optionsHtml = '';
+    Object.keys(classesData).forEach(cls => {
+        if (cls === currentClass) return;
+        const studentCount = Object.values(classesData[cls].students || {}).length;
+        optionsHtml += `
+            <label class="flex items-center gap-3 p-2.5 hover:bg-slate-800 rounded-md cursor-pointer select-none transition-colors border border-transparent hover:border-slate-700">
+                <input type="checkbox" value="${cls}" class="target-class-checkbox w-4 h-4 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500 focus:ring-offset-0">
+                <span class="text-sm font-bold text-slate-300 flex-1">${cls}</span>
+                <span class="text-[10px] text-slate-500 bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded font-mono">${studentCount} 人</span>
+            </label>
+        `;
+    });
+
+    if (optionsHtml === '') {
+        list.innerHTML = '<div class="text-slate-500 text-sm p-4 text-center bg-slate-800/50 rounded-lg">目前沒有其他班級可供套用</div>';
+    } else {
+        list.innerHTML = optionsHtml;
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeApplySettingsModal() {
+    document.getElementById('applySettingsModal').classList.add('hidden');
+}
+
+function toggleAllTargetClasses() {
+    const checkboxes = document.querySelectorAll('.target-class-checkbox');
+    if (checkboxes.length === 0) return;
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+function confirmApplySettings() {
+    const checkboxes = document.querySelectorAll('.target-class-checkbox:checked');
+    const targetClasses = Array.from(checkboxes).map(cb => cb.value);
+
+    if (targetClasses.length === 0) {
+        alert('請先選擇至少一個目標班級！');
+        return;
+    }
+
+    if (!confirm(`確定要將本班的座位設定套用到選取的 ${targetClasses.length} 個班級嗎？\n這會覆蓋這些班級目前的網格大小與不開放座位配置，並強制重新自動排位。\n電腦編號也會一併複製覆蓋。\n(不會影響學生的個人資料，但可能會把學生換位子)`)) {
+        return;
+    }
+
+    const sourceConfig = classesData[currentClass].config;
+    const sourceCols = sourceConfig.cols || 6;
+    const sourceRows = sourceConfig.rows || 8;
+    const sourceUnavailableCount = sourceConfig.unavailableSeats ? sourceConfig.unavailableSeats.length : 0;
+    const validSeatCount = (sourceCols * sourceRows) - sourceUnavailableCount;
+
+    const failedClasses = [];
+    const successfulClasses = [];
+
+    targetClasses.forEach(cls => {
+        const targetData = classesData[cls];
+        const studentCount = targetData.students ? Object.keys(targetData.students).length : 0;
+
+        if (studentCount > validSeatCount) {
+            failedClasses.push(`${cls} (${studentCount} 人)`);
+            return;
+        }
+
+        if (!targetData.config) targetData.config = {};
+
+        targetData.config.cols = sourceConfig.cols || 6;
+        targetData.config.rows = sourceConfig.rows || 8;
+        targetData.config.layoutMode = sourceConfig.layoutMode || 'rtl';
+        targetData.config.unavailableSeats = sourceConfig.unavailableSeats ? [...sourceConfig.unavailableSeats] : [];
+        targetData.config.pcNumbers = sourceConfig.pcNumbers ? JSON.parse(JSON.stringify(sourceConfig.pcNumbers)) : {};
+
+        targetData.config.isManualLayout = false;
+        reflowClassLayout(cls, true);
+
+        successfulClasses.push(cls);
+    });
+
+    saveData();
+    closeApplySettingsModal();
+
+    let resultMessage = '';
+    if (successfulClasses.length > 0) {
+        resultMessage += `✅ 座位設定已成功套用至 ${successfulClasses.length} 個班級！\n`;
+    }
+    if (failedClasses.length > 0) {
+        resultMessage += `⚠️ 以下班級因學生人数大於有效座位數 (${validSeatCount} 個)，套用失敗：\n${failedClasses.join(', ')}`;
+    }
+
+    if (resultMessage) {
+        alert(resultMessage);
     }
 }
 
@@ -1997,6 +2214,27 @@ function renderSettingsPage() {
     }).join('');
     renderReasonSettings();
     lucide.createIcons();
+
+    // Init Defaults
+    const colEl = document.getElementById('sysDefCols');
+    if (colEl) colEl.value = sysSettings.defaultCols || 6;
+    const rowEl = document.getElementById('sysDefRows');
+    if (rowEl) rowEl.value = sysSettings.defaultRows || 8;
+    const layoutEl = document.getElementById('sysDefLayout');
+    if (layoutEl) layoutEl.value = sysSettings.defaultLayoutMode || 'rtl';
+}
+
+function saveSysDefaults() {
+    const cols = parseInt(document.getElementById('sysDefCols').value) || 6;
+    const rows = parseInt(document.getElementById('sysDefRows').value) || 8;
+    const layout = document.getElementById('sysDefLayout').value || 'rtl';
+
+    sysSettings.defaultCols = cols;
+    sysSettings.defaultRows = rows;
+    sysSettings.defaultLayoutMode = layout;
+
+    saveData();
+    alert('✅ 預設座位設定已儲存！新建立的班級將會採用此網格與排序設定。');
 }
 
 // --- 班級管理 ---
@@ -2686,7 +2924,7 @@ function importClass() {
         history: [],
         seatingLayout: [], // default empty
         attendanceLogs: [],
-        config: { cols: 4, rows: 8 } // Default config
+        config: { cols: sysSettings.defaultCols || 6, rows: sysSettings.defaultRows || 8, layoutMode: sysSettings.defaultLayoutMode || 'rtl', unavailableSeats: [] }
     };
 
     saveData();

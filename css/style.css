@@ -321,3 +321,102 @@ h6,
     margin-bottom: 0.5rem;
     justify-content: center;
 }
+
+/* Export Mode Adjustments */
+.export-mode .box-score,
+.export-mode .w-full.h-\[36px\] {
+    display: none !important;
+}
+
+.export-mode .student-card {
+    transition: none !important;
+    transform: none !important;
+}
+
+/* Hide the normal top flex container but keep it around so it doesn't break layout */
+.export-mode .student-card .flex.justify-between.items-start.p-2.z-20 {
+    position: absolute;
+    top: 0 !important;
+    left: 2px !important;
+    padding: 0 !important;
+}
+
+/* Hide the score inside the top container just in case */
+.export-mode .student-card .box-score {
+    display: none !important;
+}
+
+/* The container holding the PC number */
+.export-mode .font-mono.text-xs.font-bold.px-1\.5,
+.export-mode>div>.absolute.top-2.left-2.z-40.font-mono {
+    font-size: clamp(1rem, 2vw, 1.5rem) !important;
+    /* Larger PC Number */
+    padding: 4px 8px !important;
+    background-color: rgba(15, 23, 42, 0.8) !important;
+    /* Slight dark bg to read easily over contents */
+    border-radius: 8px !important;
+    border-color: transparent !important;
+    color: #38bdf8 !important;
+    /* sky-400 */
+}
+
+/* Force empty seat badge position */
+.export-mode>div>.absolute.top-2.left-2.z-40.font-mono {
+    top: 0 !important;
+    left: 2px !important;
+}
+
+/* Hide icon to save space */
+.export-mode .font-mono.text-xs.font-bold.px-1\.5 svg,
+.export-mode .font-mono.text-xs.font-bold.px-1\.5 i,
+.export-mode>div>.absolute.top-2.left-2.z-40.font-mono svg,
+.export-mode>div>.absolute.top-2.left-2.z-40.font-mono i {
+    display: none !important;
+}
+
+/* Central Block containing Seat No and Name */
+.export-mode .student-card .flex-1.flex.flex-col.items-center.justify-center {
+    justify-content: center !important;
+    height: 100% !important;
+    padding: 0 0.5rem 1rem 0.5rem !important;
+    /* Move up by having more bottom padding */
+    /* Maximize content area */
+}
+
+/* Seat Number + Name container */
+.export-mode .student-card .font-bold.text-base {
+    font-size: clamp(1.2rem, 3.5vw, 2.5rem) !important;
+    /* Huge fluid text but capped to prevent overflow */
+    line-height: 1.1 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    /* Prevents long names from ignoring bounds */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin-top: -1rem !important;
+    /* Visual optical adjustment to center within the box despite the computer number */
+}
+
+/* Seat Number */
+.export-mode .student-card .text-slate-400.font-mono.text-sm.mr-1 {
+    font-size: clamp(1.2rem, 3vw, 2rem) !important;
+    margin-right: 0 !important;
+    margin-bottom: 0.5rem !important;
+    /* Increased spacing to name */
+    display: block !important;
+    color: #94a3b8 !important;
+    /* slate-400 */
+}
+
+/* Hide unavail seat ban icon */
+.export-mode .text-slate-500\/50>svg,
+.export-mode .text-slate-500\/50>i {
+    width: 3rem !important;
+    height: 3rem !important;
+    opacity: 0.3 !important;
+}
