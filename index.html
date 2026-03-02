@@ -679,6 +679,153 @@
             </div>
         </section>
 
+        <!-- 分頁 10: 排序演算法 -->
+        <section id="view-sortAlgo" class="hidden animate-in fade-in duration-500 pb-12">
+            <div class="max-w-6xl mx-auto flex flex-col items-center">
+                <h2 class="text-2xl font-bold flex items-center gap-2 mb-6 text-emerald-400 self-start">
+                    <i data-lucide="bar-chart-2"></i> 排序演算法視覺化 (Sort Algorithm)
+                </h2>
+
+                <div
+                    class="glass-panel p-6 w-full mb-6 flex items-center gap-4 border-t-4 border-t-emerald-500 flex-wrap">
+                    <button onclick="initSortAlgo('selection')" id="btn-algo-selection"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg transition-all">選擇排序法</button>
+                    <button onclick="initSortAlgo('insertion')" id="btn-algo-insertion"
+                        class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg font-bold shadow-lg transition-all">插入排序法</button>
+                    <div class="flex-1 w-px bg-slate-700 mx-2 hidden md:block"></div>
+                    <button onclick="resetSortArray()"
+                        class="bg-slate-800 border bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-slate-300 font-bold transition-all flex items-center gap-1 ml-auto">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>還原預設數列
+                    </button>
+                </div>
+
+                <!-- 狀態與說明 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                    <!-- 左方說明 -->
+                    <div
+                        class="col-span-1 glass-panel p-6 flex flex-col gap-4 border-t-4 border-t-sky-500 overflow-y-auto max-h-[500px]">
+                        <div>
+                            <h3 class="text-xl font-black text-sky-400 mb-2" id="algoTitle">選擇排序法 (Selection Sort)</h3>
+                            <div id="algoDescription"
+                                class="text-[15px] text-slate-100 p-3 bg-sky-900/20 rounded-lg border border-sky-500/20 space-y-2 leading-relaxed tracking-wide min-h-[90px]">
+                                <!-- 步驟說明 -->
+                            </div>
+                        </div>
+
+                        <div
+                            class="text-[14px] text-slate-300 space-y-2 leading-relaxed bg-slate-800/40 p-4 rounded-lg">
+                            <h4 class="font-bold text-slate-200 border-b border-slate-700 pb-2 mb-3">課本演算法步驟</h4>
+                            <ul id="algoRulesList"
+                                class="list-decimal pl-5 space-y-1.5 marker:text-emerald-500 marker:font-bold">
+                                <!-- 靜態步驟 (JS 呈現) -->
+                            </ul>
+                        </div>
+                    </div>
+                    <!-- 右方動畫區 -->
+                    <div
+                        class="col-span-1 md:col-span-2 glass-panel p-8 min-h-[500px] flex flex-col items-center justify-center relative bg-slate-900 overflow-hidden border border-slate-700">
+                        <!-- 步驟提示 -->
+                        <div id="algoStepHint"
+                            class="absolute top-6 left-6 text-emerald-300 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/30 text-sm font-bold tracking-widest z-20 shadow-lg">
+                            等待開始...
+                        </div>
+
+                        <!-- 圖例說明 -->
+                        <div
+                            class="absolute top-6 right-6 flex flex-col items-end gap-2 text-xs font-mono font-bold z-10 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+                            <span class="flex items-center gap-2 flex-row-reverse"><span
+                                    class="w-3 h-3 bg-emerald-500 rounded-sm shadow-lg shadow-emerald-500/20"></span>
+                                已排序</span>
+                            <span class="flex items-center gap-2 flex-row-reverse"><span
+                                    class="w-3 h-3 bg-slate-700 rounded-sm"></span> 未排序</span>
+                            <span class="flex items-center gap-2 flex-row-reverse"><span
+                                    class="w-3 h-3 bg-orange-500 rounded-sm shadow-lg shadow-orange-500/20"></span> 比較中
+                                / 處理元素</span>
+                        </div>
+
+                        <!-- 數字方塊容器 -->
+                        <div id="sortArrayContainer"
+                            class="flex gap-4 items-end mt-32 mb-2 relative min-h-[160px] w-full justify-center perspective-[1000px]">
+                            <!-- 預設 8, 5, 10, 1, 7 JS Generated -->
+                        </div>
+
+                        <!-- 陣列位置標籤容器 -->
+                        <div id="sortLabelsContainer"
+                            class="flex gap-4 items-start mb-10 relative w-full justify-center z-10">
+                            <!-- JS Generated -->
+                        </div>
+
+                        <!-- 控制按鈕 -->
+                        <div class="flex gap-4 mt-auto w-full justify-center z-20 flex-wrap">
+                            <button onclick="algoPrevStep()" id="btn-algo-prev"
+                                class="bg-indigo-600 hover:bg-indigo-500 w-32 md:w-36 py-3 rounded-xl font-bold flex items-center justify-center text-white shadow-xl transition-all shadow-indigo-900/30 disabled:opacity-50">
+                                <i data-lucide="chevron-left" class="w-5 h-5 mr-1"></i> 上一步
+                            </button>
+                            <button onclick="algoNextStep()" id="btn-algo-next"
+                                class="bg-indigo-600 hover:bg-indigo-500 w-32 md:w-36 py-3 rounded-xl font-bold flex items-center justify-center text-white shadow-xl transition-all shadow-indigo-900/30 disabled:opacity-50">
+                                下一步 <i data-lucide="chevron-right" class="w-5 h-5 ml-1"></i>
+                            </button>
+                            <button onclick="algoToggleAutoPlay()" id="btn-algo-auto"
+                                class="bg-amber-600 hover:bg-amber-500 w-32 md:w-36 py-3 rounded-xl font-bold flex items-center justify-center text-white shadow-xl transition-all shadow-amber-900/30 disabled:opacity-50">
+                                <span id="autoPlayText">自動播放</span> <i id="autoPlayIcon" data-lucide="play"
+                                    class="w-5 h-5 ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 互動測驗區 -->
+                <div class="glass-panel w-full mt-6 p-6 border-t-4 border-t-pink-500">
+                    <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+                        <h3 class="text-xl font-black text-pink-400 flex items-center gap-2">
+                            <i data-lucide="edit-3" class="w-6 h-6"></i> 互動測驗：排序挑戰
+                        </h3>
+                        <button onclick="generateSortQuiz()"
+                            class="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg transition-all flex items-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> 隨機產生題目
+                        </button>
+                    </div>
+
+                    <!-- 尚未產生題目的提示 -->
+                    <div id="quizPlaceholder"
+                        class="text-slate-400 text-center py-10 font-bold tracking-widest bg-slate-800/30 rounded-xl border border-dashed border-slate-600">
+                        點擊上方按鈕隨機產生題目，開始測驗！
+                    </div>
+
+                    <!-- 測驗內容區 -->
+                    <div id="quizContainer" class="hidden flex flex-col gap-6">
+                        <div
+                            class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 w-full flex flex-col md:flex-row gap-4 items-start md:items-center">
+                            <div class="text-slate-300 font-bold whitespace-nowrap">目前演算法：<span id="quizAlgoName"
+                                    class="text-pink-400 ml-1">選擇排序法</span></div>
+                            <div class="hidden md:block w-px h-6 bg-slate-600"></div>
+                            <div class="text-slate-300 font-bold flex items-center gap-2 flex-wrap text-lg">
+                                原始資料：
+                                <span id="quizInitialArrayDisplay"
+                                    class="font-mono text-emerald-400 tracking-widest bg-slate-900 px-3 py-1 rounded-lg border border-slate-700 shadow-inner"></span>
+                            </div>
+                        </div>
+
+                        <!-- 題目層級 (Rounds inputs) -->
+                        <div id="quizRowsContainer"
+                            class="flex flex-col gap-4 bg-slate-900/50 p-4 md:p-6 rounded-xl border border-slate-700/50">
+                            <!-- JS Generated Inputs -->
+                        </div>
+
+                        <!-- 驗證結果與按鈕 -->
+                        <div class="flex flex-wrap items-center justify-between gap-4 mt-2">
+                            <div id="quizResultMsg" class="flex-1 font-bold text-lg flex items-center gap-2"></div>
+                            <button onclick="verifySortQuiz()"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold shadow-xl transition-all shadow-indigo-900/30 w-full md:w-auto flex justify-center items-center gap-2">
+                                <i data-lucide="check-square" class="w-5 h-5"></i> 驗證答案
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
         <!-- PDF Preview Modal -->
         <div id="pdfPreviewModal"
             class="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-sm hidden flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">

@@ -34,6 +34,7 @@ window.teachingResources = teachingResources;
 // New: Dynamic Modules List
 var defaultModules = [
     { id: 'calendar', title: '行事曆', desc: '查看月曆與課程排程', icon: 'calendar-days', color: 'sky', action: "switchTab('calendar')" },
+    { id: 'sortAlgo', title: '排序演算法', desc: '可視化演示選擇與插入排序', icon: 'bar-chart-2', color: 'emerald', action: "switchTab('sortAlgo')" },
     { id: 'timer', title: '課堂計時器', desc: '懸浮式倒數計時工具', icon: 'timer', color: 'orange', action: "toggleTimerModal()" },
     { id: 'leaderboard', title: '積分排行榜', desc: '查看學生學期積分排名', icon: 'trophy', color: 'pink', action: "switchTab('leaderboard')" },
     { id: 'keyboard', title: '互動鍵盤', desc: '示範常用快捷鍵操作', icon: 'keyboard', color: 'violet', action: "switchTab('keyboard')" },
@@ -296,7 +297,7 @@ function switchTab(tabId) {
     });
 
     // Update sections
-    const sections = ['dashboard', 'seating', 'records', 'lottery', 'textbook', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon', 'calendar'];
+    const sections = ['dashboard', 'seating', 'records', 'lottery', 'textbook', 'settings', 'leaderboard', 'keyboard', 'resource-detail', 'polygon', 'calendar', 'sortAlgo'];
 
     // 1. First hide ALL sections to ensure clean state
     sections.forEach(s => {
@@ -322,6 +323,9 @@ function switchTab(tabId) {
             if (tabId === 'polygon') initPolygon();
             if (tabId === 'calendar') renderCalendar();
             if (tabId === 'textbook') renderTextbookGrid();
+            if (tabId === 'sortAlgo' && typeof initSortAlgo === 'function') {
+                if (!sortState.initialized) initSortAlgo('selection');
+            }
         } catch (e) {
             console.error(`Error initializing ${tabId}:`, e);
         }
@@ -5042,3 +5046,692 @@ function resetCalendarToToday() {
     currentCalendarDate = new Date();
     renderCalendar();
 }
+
+// ============================================
+// 排序演算法視覺化 (Sort Algorithm Visualization)
+// ============================================
+let sortState = {
+    algo: 'selection',
+    array: [8, 5, 10, 1, 7],
+    initialArray: [8, 5, 10, 1, 7],
+    autoPlayTimer: null,
+    isPlaying: false,
+    initialized: false,
+    states: [],
+    stepIndex: 0
+};
+
+function initSortAlgo(algo = 'selection') {
+    sortState.algo = algo;
+    sortState.array = [...sortState.initialArray];
+    sortState.stepIndex = 0;
+    sortState.initialized = true;
+    sortState.states = [];
+    if (sortState.isPlaying) algoToggleAutoPlay();
+
+    // Generate states
+    if (algo === 'selection') {
+        generateSelectionSortStates();
+    } else {
+        generateInsertionSortStates();
+    }
+
+    // Update UI active tab
+    const btnSel = document.getElementById('btn-algo-selection');
+    const btnIns = document.getElementById('btn-algo-insertion');
+    if (btnSel && btnIns) {
+        btnSel.className = 'px-4 py-2 rounded-lg font-bold shadow-lg transition-all ' + (algo === 'selection' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300');
+        btnIns.className = 'px-4 py-2 rounded-lg font-bold shadow-lg transition-all ' + (algo === 'insertion' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300');
+    }
+
+    renderSortState();
+}
+
+function generateSelectionSortStates() {
+    let arr = [...sortState.initialArray];
+    let states = [];
+    states.push({
+        array: [...arr],
+        sortedEndIndex: -1,
+        comparingIndices: [],
+        minIndex: -1,
+        roundIndex: 0,
+        explanation: "<b>初始狀態</b><br>未排序的原始資料：[8, 5, 10, 1, 7]"
+    });
+
+    for (let i = 0; i < arr.length; i++) {
+        let minIdx = i;
+        let currentRound = i + 1;
+        states.push({
+            array: [...arr],
+            sortedEndIndex: i - 1,
+            comparingIndices: [i],
+            minIndex: minIdx,
+            roundIndex: currentRound,
+            explanation: `<b>第 ${currentRound} 回合尋找</b><br>從未排序的資料中找到第一個最小的元素。<br>預設目前最小元素為 ${arr[minIdx]}。`
+        });
+
+        for (let j = i + 1; j < arr.length; j++) {
+            let explanation = `<b>尋找最小元素</b><br>比較 ${arr[j]} 和目前的最小值 ${arr[minIdx]}。`;
+            let isNewMin = arr[j] < arr[minIdx];
+            if (isNewMin) {
+                explanation += `<br><span class="text-orange-400 font-bold">${arr[j]} 較小！</span> 準備更新目前最小元素為 ${arr[j]}。`;
+            } else {
+                explanation += `<br>目前的最小值 ${arr[minIdx]} 較小，不更新。`;
+            }
+            states.push({
+                array: [...arr],
+                sortedEndIndex: i - 1,
+                comparingIndices: [j, minIdx],
+                minIndex: minIdx,
+                roundIndex: currentRound,
+                explanation: explanation
+            });
+
+            if (isNewMin) {
+                minIdx = j;
+                states.push({
+                    array: [...arr],
+                    sortedEndIndex: i - 1,
+                    comparingIndices: [minIdx],
+                    minIndex: minIdx,
+                    roundIndex: currentRound,
+                    explanation: `<b>更新最小元素</b><br>已將目前最小元素更新為 ${arr[minIdx]}。`
+                });
+            }
+        }
+
+        let explanationFound = `<b>完成第 ${currentRound} 回合尋找</b><br>在未排序資料中找到最小的元素是 ${arr[minIdx]}。`;
+        states.push({
+            array: [...arr],
+            sortedEndIndex: i - 1,
+            comparingIndices: [minIdx],
+            minIndex: minIdx,
+            roundIndex: currentRound,
+            explanation: explanationFound + (minIdx !== i ? `<br>準備將其與未排序區的第一個元素（${arr[i]}）交換。` : `<br>它已經在正確的位置。`)
+        });
+
+        if (minIdx !== i) {
+            let temp = arr[i];
+            arr[i] = arr[minIdx];
+            arr[minIdx] = temp;
+        }
+
+        states.push({
+            array: [...arr],
+            sortedEndIndex: i, // array[i] is now sorted
+            comparingIndices: [i, minIdx],
+            minIndex: -1,
+            roundIndex: currentRound,
+            explanation: `<b>加入已排序數列</b><br>已將 ${arr[i]} 加到已排序數列的結尾。`
+        });
+    }
+
+    states.push({
+        array: [...arr],
+        sortedEndIndex: arr.length - 1,
+        comparingIndices: [],
+        minIndex: -1,
+        roundIndex: -1,
+        explanation: `<b>排序完成！</b><br>原始資料已全部處理完成。`
+    });
+
+    sortState.states = states;
+}
+
+function generateInsertionSortStates() {
+    let arr = [...sortState.initialArray];
+    let states = [];
+    states.push({
+        array: [...arr],
+        sortedEndIndex: -1,
+        comparingIndices: [],
+        activeValue: null,
+        activeIndex: -1,
+        roundIndex: 0,
+        explanation: "<b>初始狀態</b><br>未排序的原始資料：[8, 5, 10, 1, 7]"
+    });
+
+    states.push({
+        array: [...arr],
+        sortedEndIndex: 0,
+        comparingIndices: [],
+        activeValue: null,
+        activeIndex: -1,
+        roundIndex: 1,
+        explanation: "<b>第 1 回合</b><br>取出未排序資料中的第 1 個元素（8），加到已排序數列中的第一項。"
+    });
+
+    for (let i = 1; i < arr.length; i++) {
+        let currentValue = arr[i];
+        let currentRound = i + 1;
+
+        states.push({
+            array: [...arr],
+            sortedEndIndex: i - 1,
+            comparingIndices: [i],
+            activeValue: currentValue,
+            activeIndex: i,
+            roundIndex: currentRound,
+            explanation: `<b>第 ${currentRound} 回合</b><br>從未排序的原始資料中取出下一個元素（${currentValue}）。<br>準備由前往後和已排序數列元素比較。`
+        });
+
+        let targetIndex = i;
+        for (let k = 0; k < i; k++) {
+            states.push({
+                array: [...arr],
+                sortedEndIndex: i - 1,
+                comparingIndices: [k],
+                activeValue: currentValue,
+                activeIndex: i,
+                roundIndex: currentRound,
+                explanation: `<b>尋找插入位置</b><br>由前往後將 ${currentValue} 和已排序元素 ${arr[k]} 比較。<br>遇到大於自己的元素就插入此元素之前。`
+            });
+            if (arr[k] > currentValue) {
+                targetIndex = k;
+                states.push({
+                    array: [...arr],
+                    sortedEndIndex: i - 1,
+                    comparingIndices: [k],
+                    activeValue: currentValue,
+                    activeIndex: i,
+                    roundIndex: currentRound,
+                    explanation: `<b>找到插入位置！</b><br>遇到 ${arr[k]} 大於自己（${currentValue}），所以插入在 ${arr[k]} 之前。`
+                });
+                break;
+            }
+        }
+
+        if (targetIndex === i) {
+            states.push({
+                array: [...arr],
+                sortedEndIndex: i - 1,
+                comparingIndices: [i - 1],
+                activeValue: currentValue,
+                activeIndex: i,
+                roundIndex: currentRound,
+                explanation: `<b>加入最後一項</b><br>沒有遇到大於自己（${currentValue}）的元素，否則插入在已排序數列的最後一項。`
+            });
+        }
+
+        if (targetIndex < i) {
+            for (let m = i; m > targetIndex; m--) {
+                arr[m] = arr[m - 1];
+            }
+            arr[targetIndex] = currentValue;
+        }
+
+        states.push({
+            array: [...arr],
+            sortedEndIndex: i,
+            comparingIndices: [],
+            activeValue: null,
+            activeIndex: -1,
+            roundIndex: currentRound,
+            explanation: `<b>完成一次插入</b><br>已將 ${currentValue} 插入到正確位置。目前已排序數列增加一項。`
+        });
+    }
+
+    states.push({
+        array: [...arr],
+        sortedEndIndex: arr.length - 1,
+        comparingIndices: [],
+        activeValue: null,
+        activeIndex: -1,
+        roundIndex: -1,
+        explanation: `<b>排序完成！</b><br>已經處理完所有元素回合。`
+    });
+
+    sortState.states = states;
+}
+
+function renderSortState() {
+    if (!sortState.states[sortState.stepIndex]) return;
+    const state = sortState.states[sortState.stepIndex];
+
+    const titleEl = document.getElementById('algoTitle');
+    const descEl = document.getElementById('algoDescription');
+    const hintEl = document.getElementById('algoStepHint');
+    const rulesListEl = document.getElementById('algoRulesList');
+
+    if (titleEl) titleEl.innerText = sortState.algo === 'selection' ? '選擇排序法 (Selection Sort)' : '插入排序法 (Insertion Sort)';
+    if (descEl) descEl.innerHTML = state.explanation;
+    if (hintEl) hintEl.innerText = state.roundIndex === 0 ? '初始狀態' : (state.roundIndex === -1 ? '排序完成' : `第 ${state.roundIndex} 回合`);
+    if (rulesListEl) {
+        if (sortState.algo === 'selection') {
+            rulesListEl.innerHTML = `
+                <li>先從未排序的原始資料中找到第一個最小的元素，將它加到已排序數列的第一項。</li>
+                <li>接著從未排序的原始資料中找到最小的元素。</li>
+                <li>將此元素加到已排序數列的最後一項。</li>
+                <li>重複第 2、3 點的步驟，直到原始資料全部處理完成。</li>
+            `;
+        } else {
+            rulesListEl.innerHTML = `
+                <li>先從未排序的原始資料中，取出第 1 個元素加到已排序數列中的第一項。</li>
+                <li>接著從未排序的原始資料中逐一取出元素。</li>
+                <li>由前往後和已排序數列元素比較，遇到大於自己的元素就插入此元素之前；否則插入在已排序數列的最後一項。</li>
+                <li>重複第 2、3 點的步驟，直到原始資料全部處理完成。</li>
+            `;
+        }
+    }
+
+    const nextBtn = document.getElementById('btn-algo-next');
+    if (nextBtn) {
+        if (sortState.stepIndex >= sortState.states.length - 1) {
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            if (sortState.isPlaying) algoToggleAutoPlay();
+        } else {
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+
+    const prevBtn = document.getElementById('btn-algo-prev');
+    if (prevBtn) {
+        if (sortState.stepIndex <= 0) {
+            prevBtn.disabled = true;
+            prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            prevBtn.disabled = false;
+            prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+
+    const container = document.getElementById('sortArrayContainer');
+    if (!container) return;
+
+    const labelsContainer = document.getElementById('sortLabelsContainer');
+    if (labelsContainer && labelsContainer.children.length !== state.array.length) {
+        labelsContainer.innerHTML = '';
+        state.array.forEach((_, idx) => {
+            const labelNode = document.createElement('div');
+            labelNode.className = 'w-16 md:w-20 text-center text-slate-400 text-[13px] font-bold tracking-wider';
+            labelNode.innerText = `第 ${idx + 1} 個`;
+            labelsContainer.appendChild(labelNode);
+        });
+    }
+
+    // --- FLIP Animation Technique: First ---
+    // Record current positions of existing items based on their data-flip-id
+    const oldRects = {};
+    const flipElements = container.querySelectorAll('[data-flip-id]');
+    flipElements.forEach(el => {
+        oldRects[el.dataset.flipId] = el.getBoundingClientRect();
+    });
+
+    container.innerHTML = '';
+    const newElementsMap = {};
+
+    state.array.forEach((val, idx) => {
+        // Outer wrapper for tracking position and animating via FLIP
+        const wrapper = document.createElement('div');
+        wrapper.className = 'w-16 md:w-20 relative transition-transform z-0';
+        wrapper.dataset.flipId = `val-${val}`;
+        // Keep a minimum height to prevent layout collapse
+        wrapper.style.height = `${Math.max(...sortState.initialArray) * 16}px`;
+
+        // Inner block for values and states
+        const blk = document.createElement('div');
+        blk.className = 'absolute bottom-0 w-full transition-all duration-300 ease-in-out flex flex-col items-center justify-end origin-bottom';
+        blk.style.height = `${val * 16}px`;
+
+        let bgColor = 'bg-slate-700'; // unsorted
+        let borderColor = 'border-slate-600';
+        let textColor = 'text-slate-300';
+
+        if (idx <= state.sortedEndIndex) {
+            bgColor = 'bg-emerald-500';
+            borderColor = 'border-emerald-400';
+            textColor = 'text-white';
+        }
+
+        if (state.comparingIndices?.includes(idx)) {
+            bgColor = 'bg-orange-500';
+            borderColor = 'border-orange-400';
+            textColor = 'text-white';
+            blk.classList.add('scale-105');
+            wrapper.classList.remove('z-0');
+            wrapper.classList.add('z-10'); // Bring to front
+
+            if (sortState.algo === 'insertion' && idx === state.activeIndex) {
+                // active element being inserted (24px up)
+                blk.classList.add('-translate-y-6', 'drop-shadow-[0_10px_10px_rgba(249,115,22,0.5)]');
+            } else {
+                blk.classList.add('drop-shadow-lg');
+            }
+        }
+
+        const box = document.createElement('div');
+        box.className = `w-full h-full ${bgColor} border-2 ${borderColor} rounded-t-lg shadow-lg flex items-end justify-center pb-2 transition-colors duration-300`;
+        box.innerHTML = `<span class="font-bold text-xl md:text-2xl ${textColor} drop-shadow transition-colors duration-300">${val}</span>`;
+
+        blk.appendChild(box);
+        wrapper.appendChild(blk);
+
+        // Add badges to wrapper, not blk, to independently FLIP transition over DOM hierarchy moves
+        const baseBadgeBottom = Math.max(val * 16, 38); // prevent text overflow from low values blocking badge
+
+        if (sortState.algo === 'selection' && idx === state.minIndex && state.minIndex !== -1) {
+            const minBadgeWrapper = document.createElement('div');
+            minBadgeWrapper.dataset.flipId = 'minBadge';
+            minBadgeWrapper.className = 'absolute w-full z-30 transition-transform flex justify-center pointer-events-none';
+            minBadgeWrapper.style.bottom = `${baseBadgeBottom + 12}px`;
+
+            const minBadge = document.createElement('div');
+            minBadge.className = 'bg-sky-500 text-white text-[12px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap animate-bounce';
+            minBadge.innerText = '最小';
+
+            minBadgeWrapper.appendChild(minBadge);
+            wrapper.appendChild(minBadgeWrapper);
+        }
+
+        if (sortState.algo === 'insertion' && idx === state.activeIndex && state.activeIndex !== -1) {
+            const activeBadgeWrapper = document.createElement('div');
+            activeBadgeWrapper.dataset.flipId = 'activeBadge';
+            activeBadgeWrapper.className = 'absolute w-full z-30 transition-transform flex justify-center pointer-events-none';
+            // Offset logic: block translated up 24px visually, tracking that
+            const blockOffset = (idx === state.activeIndex && state.comparingIndices?.includes(idx)) ? 24 : 0;
+            activeBadgeWrapper.style.bottom = `${baseBadgeBottom + 12 + blockOffset}px`;
+
+            const activeBadge = document.createElement('div');
+            activeBadge.className = 'bg-pink-500 text-white text-[12px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap animate-bounce';
+            activeBadge.innerText = '處理元素';
+
+            activeBadgeWrapper.appendChild(activeBadge);
+            wrapper.appendChild(activeBadgeWrapper);
+        }
+
+        container.appendChild(wrapper);
+    });
+
+    // Map new elements
+    const newFlipElements = container.querySelectorAll('[data-flip-id]');
+    newFlipElements.forEach(el => {
+        newElementsMap[el.dataset.flipId] = el;
+    });
+
+    // --- FLIP: Last ---
+    const newRects = {};
+    newFlipElements.forEach(el => {
+        newRects[el.dataset.flipId] = el.getBoundingClientRect();
+    });
+
+    // --- FLIP: Invert ---
+    Object.keys(newElementsMap).forEach(flipId => {
+        const el = newElementsMap[flipId];
+        const oldRect = oldRects[flipId];
+        const newRect = newRects[flipId];
+
+        if (oldRect && newRect) {
+            let deltaX = oldRect.left - newRect.left;
+            let deltaY = oldRect.top - newRect.top;
+
+            // Adjust for parent's FLIP inversion if parent is also FLIPped
+            const parentWrapper = el.parentElement.closest('[data-flip-id]');
+            if (parentWrapper) {
+                const parentFlipId = parentWrapper.dataset.flipId;
+                if (oldRects[parentFlipId] && newRects[parentFlipId]) {
+                    const parentOld = oldRects[parentFlipId];
+                    const parentNew = newRects[parentFlipId];
+                    const parentDeltaX = parentOld.left - parentNew.left;
+                    const parentDeltaY = parentOld.top - parentNew.top;
+
+                    deltaX -= parentDeltaX;
+                    deltaY -= parentDeltaY;
+                }
+            }
+
+            if (deltaX !== 0 || deltaY !== 0) {
+                // Temporarily invert to previous position securely without transition
+                el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                el.style.transition = 'none';
+            }
+        }
+    });
+
+    // --- FLIP: Play ---
+    // Force layout computation 
+    container.offsetHeight;
+
+    Object.keys(newElementsMap).forEach(flipId => {
+        const el = newElementsMap[flipId];
+        if (oldRects[flipId]) {
+            // Initiate transition back to correct origin (0, 0)
+            el.style.transition = 'transform 0.5s ease-in-out';
+            el.style.transform = 'translate(0px, 0px)';
+
+            // Cleanup post-transition
+            setTimeout(() => {
+                el.style.transition = '';
+                el.style.transform = '';
+            }, 500);
+        }
+    });
+}
+
+function algoNextStep() {
+    if (sortState.stepIndex < sortState.states.length - 1) {
+        sortState.stepIndex++;
+        renderSortState();
+    }
+}
+
+function algoPrevStep() {
+    if (sortState.stepIndex > 0) {
+        // Stop autoplay on manual prev step
+        if (sortState.isPlaying) algoToggleAutoPlay();
+        sortState.stepIndex--;
+        renderSortState();
+    }
+}
+
+function algoToggleAutoPlay() {
+    sortState.isPlaying = !sortState.isPlaying;
+    const autoBtnTxt = document.getElementById('autoPlayText');
+    const autoBtnIcon = document.getElementById('autoPlayIcon');
+
+    if (sortState.isPlaying) {
+        if (autoBtnTxt) autoBtnTxt.innerText = '停止自動';
+        if (autoBtnIcon) autoBtnIcon.setAttribute('data-lucide', 'square');
+        if (window.lucide) lucide.createIcons();
+        if (sortState.stepIndex >= sortState.states.length - 1) {
+            sortState.stepIndex = 0; // auto-restart
+        }
+        sortState.autoPlayTimer = setInterval(() => {
+            if (sortState.stepIndex < sortState.states.length - 1) {
+                algoNextStep();
+            } else {
+                algoToggleAutoPlay(); // Stop
+            }
+        }, 1200);
+    } else {
+        if (autoBtnTxt) autoBtnTxt.innerText = '自動播放';
+        if (autoBtnIcon) autoBtnIcon.setAttribute('data-lucide', 'play');
+        if (window.lucide) lucide.createIcons();
+        clearInterval(sortState.autoPlayTimer);
+    }
+}
+
+function resetSortArray() {
+    if (sortState.isPlaying) algoToggleAutoPlay();
+    initSortAlgo(sortState.algo);
+}
+
+window.initSortAlgo = initSortAlgo;
+window.algoNextStep = algoNextStep;
+window.algoPrevStep = algoPrevStep;
+window.algoToggleAutoPlay = algoToggleAutoPlay;
+window.resetSortArray = resetSortArray;
+
+// ============================================
+// 排序互動測驗 (Sort Interactive Quiz)
+// ============================================
+
+let quizStateData = {
+    algo: 'selection',
+    initialArray: [],
+    correctRounds: []
+};
+
+function generateSortQuiz() {
+    quizStateData.algo = sortState.algo;
+    const algoNameEl = document.getElementById('quizAlgoName');
+    if (algoNameEl) {
+        algoNameEl.innerText = quizStateData.algo === 'selection' ? '選擇排序法 (Selection Sort)' : '插入排序法 (Insertion Sort)';
+    }
+
+    const arr = [];
+    for (let i = 0; i < 5; i++) {
+        arr.push(Math.floor(Math.random() * 50) + 1);
+    }
+    quizStateData.initialArray = [...arr];
+
+    const displayEl = document.getElementById('quizInitialArrayDisplay');
+    if (displayEl) displayEl.innerText = arr.join(', ');
+
+    // Generate correct answers based on the algorithm logic exactly like the visualizer
+    quizStateData.correctRounds = computeCorrectSortRounds(quizStateData.algo, [...arr]);
+
+    // Build UI
+    const rowsContainer = document.getElementById('quizRowsContainer');
+    if (!rowsContainer) return;
+    rowsContainer.innerHTML = '';
+
+    quizStateData.correctRounds.forEach((roundArr, rIdx) => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex flex-col md:flex-row items-start md:items-center gap-3 w-full bg-slate-800/40 p-3 rounded-lg border border-slate-700 hover:border-slate-500 transition-colors';
+
+        const label = document.createElement('div');
+        label.className = 'w-24 text-sky-400 font-bold shrink-0 text-center md:text-left text-[15px]';
+        label.innerText = `第 ${rIdx + 1} 回合`;
+        rowDiv.appendChild(label);
+
+        const inputsWrapper = document.createElement('div');
+        inputsWrapper.className = 'flex gap-2 flex-wrap flex-1 justify-center md:justify-start';
+
+        for (let i = 0; i < 5; i++) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
+            input.maxLength = 2;
+            input.dataset.row = rIdx;
+            input.dataset.col = i;
+            input.className = 'quiz-input w-12 h-12 md:w-14 md:h-14 font-mono font-bold text-lg md:text-xl text-center bg-slate-900 border-2 border-slate-600 rounded-lg text-white placeholder-slate-600 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all';
+            input.placeholder = '?';
+
+            // disable mouse wheel
+            input.addEventListener('wheel', (e) => e.preventDefault());
+
+            // clean styling on type
+            input.addEventListener('input', (e) => {
+                e.target.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+                e.target.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
+            });
+
+            inputsWrapper.appendChild(input);
+        }
+
+        rowDiv.appendChild(inputsWrapper);
+        rowsContainer.appendChild(rowDiv);
+    });
+
+    const pEl = document.getElementById('quizPlaceholder');
+    const cEl = document.getElementById('quizContainer');
+    const msgEl = document.getElementById('quizResultMsg');
+    if (pEl) pEl.classList.add('hidden');
+    if (cEl) cEl.classList.remove('hidden');
+    if (msgEl) msgEl.innerHTML = '';
+
+    if (window.lucide) lucide.createIcons();
+}
+
+function computeCorrectSortRounds(algo, arr) {
+    let rounds = [];
+    if (algo === 'selection') {
+        for (let i = 0; i < arr.length; i++) {
+            let minIdx = i;
+            for (let j = i + 1; j < arr.length; j++) {
+                if (arr[j] < arr[minIdx]) {
+                    minIdx = j;
+                }
+            }
+            if (minIdx !== i) {
+                let temp = arr[i];
+                arr[i] = arr[minIdx];
+                arr[minIdx] = temp;
+            }
+            rounds.push([...arr]);
+        }
+    } else {
+        rounds.push([...arr]); // 第 1 回合 (初始狀態：第1個元素已排序)
+        for (let i = 1; i < arr.length; i++) {
+            let current = arr[i];
+            let j = i - 1;
+            while (j >= 0 && arr[j] > current) {
+                arr[j + 1] = arr[j];
+                j--;
+            }
+            arr[j + 1] = current;
+            rounds.push([...arr]);
+        }
+    }
+    return rounds;
+}
+
+function verifySortQuiz() {
+    const inputs = document.querySelectorAll('.quiz-input');
+    if (inputs.length === 0) return;
+
+    let allCorrect = true;
+    let anyFilled = false;
+    let allFilled = true;
+
+    inputs.forEach(input => {
+        const userValStr = input.value.trim();
+        if (userValStr === '') {
+            allFilled = false;
+        } else {
+            anyFilled = true;
+        }
+    });
+
+    const msgEl = document.getElementById('quizResultMsg');
+
+    inputs.forEach(input => {
+        const rIdx = parseInt(input.dataset.row);
+        const cIdx = parseInt(input.dataset.col);
+        const correctVal = quizStateData.correctRounds[rIdx][cIdx];
+        const userValStr = input.value.trim();
+
+        input.classList.remove('border-slate-600', 'bg-slate-900', 'text-white', 'border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+
+        if (userValStr === '') {
+            input.classList.add('border-slate-600', 'bg-slate-900', 'text-white');
+        } else {
+            const userVal = parseInt(userValStr);
+            if (userVal === correctVal) {
+                input.classList.add('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300');
+            } else {
+                input.classList.add('border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+                allCorrect = false;
+            }
+        }
+    });
+
+    if (!anyFilled) {
+        msgEl.innerHTML = '<i data-lucide="info" class="text-sky-500 w-6 h-6 shrink-0"></i><span class="text-sky-400">目前還沒有填寫任何答案喔！請先填入數字。</span>';
+    } else if (allCorrect && allFilled) {
+        msgEl.innerHTML = '<i data-lucide="check-circle-2" class="text-emerald-500 w-6 h-6 shrink-0"></i><span class="text-emerald-400">完全正確！你已經掌握這個演算法了！</span>';
+    } else if (allCorrect && !allFilled) {
+        msgEl.innerHTML = '<i data-lucide="check-circle-2" class="text-emerald-500 w-6 h-6 shrink-0"></i><span class="text-emerald-400">目前填寫的空格都是正確的，繼續加油把剩下的完成吧！</span>';
+    } else {
+        msgEl.innerHTML = '<i data-lucide="x-circle" class="text-rose-500 w-6 h-6 shrink-0"></i><span class="text-rose-400">哎呀有部分錯誤，請檢查紅框欄位並重新確認規則。</span>';
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+window.generateSortQuiz = generateSortQuiz;
+window.verifySortQuiz = verifySortQuiz;
+
