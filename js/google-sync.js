@@ -88,20 +88,21 @@ const GoogleSync = {
     push: async function () {
         if (!this.url || this.isSyncing) return;
         this.isSyncing = true;
+        this.dirty = false; // Reset dirty flag now. If changes occur during fetch, it will be set to true again.
         this.updateUIStatus('syncing-upload');
         console.log("Starting Push...");
 
         try {
             // Use window globals to ensure latest data
             const bundle = {
-                classesData: window.classesData || classesData,
-                teacherTimetable: window.teacherTimetable || teacherTimetable,
-                periodTimes: window.periodTimes || periodTimes,
-                scoreReasons: window.scoreReasons || scoreReasons,
-                teachingResources: window.teachingResources || teachingResources,
-                modules: window.modules || modules, // Sync Modules Order
-                textbookLinks: window.textbookLinks || textbookLinks || [], // Sync Textbook Links
-                lastActiveDate: new Date().toDateString() // Add Date to Sync
+                classesData: window.classesData || (typeof classesData !== 'undefined' ? classesData : {}),
+                teacherTimetable: window.teacherTimetable || (typeof teacherTimetable !== 'undefined' ? teacherTimetable : {}),
+                periodTimes: window.periodTimes || (typeof periodTimes !== 'undefined' ? periodTimes : []),
+                scoreReasons: window.scoreReasons || (typeof scoreReasons !== 'undefined' ? scoreReasons : {}),
+                teachingResources: window.teachingResources || (typeof teachingResources !== 'undefined' ? teachingResources : []),
+                modules: window.modules || (typeof modules !== 'undefined' ? modules : []),
+                textbookLinks: window.textbookLinks || (typeof textbookLinks !== 'undefined' ? textbookLinks : []),
+                lastActiveDate: new Date().toDateString()
             };
 
             const response = await fetch(this.url, {
@@ -122,9 +123,8 @@ const GoogleSync = {
 
             if (resJson.result === 'error') throw new Error(resJson.error);
 
-            this.dirty = false;
             this.lastSyncTime = Date.now();
-            if (resJson.timestamp) this.lastServerTimestamp = resJson.timestamp; // Update version
+            if (resJson.timestamp) this.lastServerTimestamp = resJson.timestamp;
 
             this.updateUIStatus('synced');
             console.log("Push completed successfully");
@@ -132,14 +132,18 @@ const GoogleSync = {
         } catch (e) {
             console.error("Sync Push Error:", e);
             this.updateUIStatus('error');
-            // Show alert for troubleshooting
             if (e.message.includes("not valid JSON")) {
-                alert("上傳失敗：伺服器回傳格式錯誤。\n原因可能是：\n1. Google Apps Script 尚未重新部署 (New Version)。\n2. 權限未設定為「所有人 (Anyone)」。\n\n內容片段: " + e.message);
+                alert("上傳失敗：伺服器回傳格式錯誤。\n原因可能是：\n1. Google Apps Script 尚未重新部署。\n2. 權限未設定為「所有人」。");
             } else {
                 if (!this.autoSyncInterval) alert("同步失敗：" + e.message);
             }
         } finally {
             this.isSyncing = false;
+            // If data became dirty during the sync (e.g. another concurrent update), trigger another push
+            if (this.dirty) {
+                console.log("Data became dirty during push, re-scheduling...");
+                this.schedPush();
+            }
         }
     },
 
@@ -205,7 +209,23 @@ const GoogleSync = {
                 if (data.periodTimes) window.periodTimes = data.periodTimes;
                 if (data.scoreReasons) window.scoreReasons = data.scoreReasons;
                 if (data.teachingResources) window.teachingResources = data.teachingResources;
-                if (data.modules) window.modules = data.modules; // Load Modules Order
+                if (data.modules && Array.isArray(data.modules)) {
+                    // Feature Sync from Cloud
+                    const validIds = new Set(window.defaultModules.map(dm => dm.id));
+                    let syncedModules = data.modules
+                        .filter(m => validIds.has(m.id))
+                        .map(m => {
+                            const latest = window.defaultModules.find(dm => dm.id === m.id);
+                            return { ...m, ...latest }; // Refresh code-defined properties
+                        });
+
+                    // Add new features added in the latest version but missing in Cloud
+                    const currentIds = new Set(syncedModules.map(m => m.id));
+                    window.defaultModules.forEach(dm => {
+                        if (!currentIds.has(dm.id)) syncedModules.push(dm);
+                    });
+                    window.modules = syncedModules;
+                }
                 if (data.textbookLinks) window.textbookLinks = data.textbookLinks; // Load Textbook Links
 
                 // Save to local storage without triggering push
@@ -227,7 +247,13 @@ const GoogleSync = {
                     // Do not redirect if user is viewing resource detail
                     if (typeof window.renderResources === 'function') window.renderResources();
                 } else {
-                    if (typeof window.switchTab === 'function') window.switchTab(window.currentTab || 'dashboard');
+                    // Optimized: Only refresh if window.switchTab is available and user is already beyond login
+                    if (typeof window.switchTab === 'function' && sessionStorage.getItem('isLoggedIn') === 'true') {
+                        // Pass currentTab to ensure we don't jump to dashboard unless that's where we are
+                        // If currentTab is somehow lost, default to 'dashboard' but only if really needed
+                        const target = window.currentTab || 'dashboard';
+                        window.switchTab(target);
+                    }
                 }
 
                 // Optional: Show a subtle notification or just rely on the green status light

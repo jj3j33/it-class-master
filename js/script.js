@@ -46,9 +46,12 @@ window.modules = modules;
 let isModuleReordering = false;
 
 let currentTab = 'dashboard';
+window.currentTab = currentTab;
 let currentClass = "";
 let lotteryHistory = [];
 let selectedIndices = new Set();
+let isSelectionMode = false; // 控制是否進入多選模式
+let lastSelectedIndexSelection = null; // 為多選(Shift鍵)紀錄上一次點擊的索引
 let lastWinnerIndex = null;
 let lastCheckedDateStr = new Date().toDateString();
 
@@ -60,7 +63,19 @@ window.textbookLinks = textbookLinks;
 var sysSettings = { defaultCols: 6, defaultRows: 8, defaultLayoutMode: 'rtl' };
 window.sysSettings = sysSettings;
 
-window.onload = () => {
+// DOM Cache for performance
+let domCache = {};
+function getCachedElement(id) {
+    if (!domCache[id]) {
+        domCache[id] = document.getElementById(id);
+    }
+    return domCache[id];
+}
+
+// --- APP INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Start with a clean slate but don't wait for everything to load the fonts/scripts
+    console.log("App initializing...");
     const saved = localStorage.getItem('it-class-master-v4');
     if (saved) {
         const parsed = JSON.parse(saved);
@@ -70,18 +85,32 @@ window.onload = () => {
         scoreReasons = parsed.scoreReasons || scoreReasons;
         teachingResources = parsed.teachingResources || teachingResources;
         sysSettings = parsed.sysSettings || sysSettings;
-        teachingResources = parsed.teachingResources || teachingResources;
-        teachingResources = parsed.teachingResources || teachingResources;
-        // Load Modules
+
+        // Ensure globals match loaded data
+        window.classesData = classesData;
+        window.teacherTimetable = teacherTimetable;
+        window.periodTimes = periodTimes;
+        window.scoreReasons = scoreReasons;
+        window.teachingResources = teachingResources;
+        window.sysSettings = sysSettings;
+
+        // Robust Feature Sync: Only keep saved modules that still exist in defaultModules, and add new ones.
         if (parsed.modules && Array.isArray(parsed.modules) && parsed.modules.length > 0) {
-            modules = parsed.modules.filter(m => m.id !== 'seating' && m.id !== 'textbook');
-            // Merge any new default modules that might be missing from saved data
-            const savedIds = new Set(modules.map(m => m.id));
+            const validIds = new Set(defaultModules.map(dm => dm.id));
+            // Keep preserved order for valid ones, while refreshing definitions from defaultModules
+            let syncedModules = parsed.modules
+                .filter(m => validIds.has(m.id))
+                .map(m => {
+                    const latest = defaultModules.find(dm => dm.id === m.id);
+                    return { ...m, ...latest }; // Update props like action, title, color from code
+                });
+
+            // Add any new default modules that aren't in the saved list yet
+            const currentIds = new Set(syncedModules.map(m => m.id));
             defaultModules.forEach(dm => {
-                if (!savedIds.has(dm.id)) {
-                    modules.push(dm);
-                }
+                if (!currentIds.has(dm.id)) syncedModules.push(dm);
             });
+            modules = syncedModules;
         } else {
             modules = JSON.parse(JSON.stringify(defaultModules));
         }
@@ -132,10 +161,12 @@ window.onload = () => {
     }
 
     initClassSelector();
+    updateDashboardStats(); // Ensure stats are visible immediately
     initTimetableEditor();
 
     renderModules(); // Initial Render
     switchTab('dashboard');
+    // Global render once on start
     lucide.createIcons();
 
     setInterval(updateTimeAndStatus, 1000);
@@ -147,7 +178,7 @@ window.onload = () => {
         const urlInput = document.getElementById('gasUrlInput');
         if (urlInput) urlInput.value = window.GoogleSync.url;
 
-        // Try to pull fresh data from cloud on startup
+        // Pull fresh data from cloud on background
         if (window.GoogleSync.url) {
             window.GoogleSync.pull();
         }
@@ -155,18 +186,17 @@ window.onload = () => {
         console.error("GoogleSync module failed to load!");
     }
 
-    // Hide Loader on finish
-    setTimeout(() => {
-        const loader = document.getElementById('globalLoader');
-        if (loader) {
-            loader.style.opacity = '0';
-            loader.style.pointerEvents = 'none'; // Prevent clicks during fade out
-            setTimeout(() => loader.remove(), 500);
-        }
-    }, 600);
+    // Hide Loader as soon as local data is rendered
+    // Reduced delay for better perceived performance
+    const loader = document.getElementById('globalLoader');
+    if (loader) {
+        loader.style.opacity = '0';
+        loader.style.pointerEvents = 'none';
+        setTimeout(() => loader.remove(), 500);
+    }
 
     initDrawing();
-};
+});
 
 
 
@@ -238,16 +268,15 @@ function logout() {
 
 // Updated saveData with logging
 function saveData(skipPush = false) {
-    // CRITICAL: Ensure local variables match window globals (which might have been updated by Sync)
-    // before we serialize.
-    if (typeof window.classesData !== 'undefined') classesData = window.classesData;
-    if (typeof window.teacherTimetable !== 'undefined') teacherTimetable = window.teacherTimetable;
-    if (typeof window.periodTimes !== 'undefined') periodTimes = window.periodTimes;
-    if (typeof window.scoreReasons !== 'undefined') scoreReasons = window.scoreReasons;
-    if (typeof window.teachingResources !== 'undefined') teachingResources = window.teachingResources;
-    if (typeof window.modules !== 'undefined') modules = window.modules;
-    if (typeof window.textbookLinks !== 'undefined') textbookLinks = window.textbookLinks;
-    if (typeof window.sysSettings !== 'undefined') sysSettings = window.sysSettings;
+    // CRITICAL: Propagate local updates to window globals for Sync visibility
+    if (typeof classesData !== 'undefined') window.classesData = classesData;
+    if (typeof teacherTimetable !== 'undefined') window.teacherTimetable = teacherTimetable;
+    if (typeof periodTimes !== 'undefined') window.periodTimes = periodTimes;
+    if (typeof scoreReasons !== 'undefined') window.scoreReasons = scoreReasons;
+    if (typeof teachingResources !== 'undefined') window.teachingResources = teachingResources;
+    if (typeof modules !== 'undefined') window.modules = modules;
+    if (typeof textbookLinks !== 'undefined') window.textbookLinks = textbookLinks;
+    if (typeof sysSettings !== 'undefined') window.sysSettings = sysSettings;
 
     const bundle = {
         classesData: classesData,
@@ -255,6 +284,7 @@ function saveData(skipPush = false) {
         periodTimes: periodTimes,
         scoreReasons: scoreReasons,
         teachingResources: teachingResources,
+        modules: modules, // Save Modules settings
         textbookLinks: textbookLinks, // Save Textbook Links
         sysSettings: sysSettings,
         currentClass: currentClass,
@@ -276,6 +306,7 @@ function saveData(skipPush = false) {
 
 function switchTab(tabId) {
     currentTab = tabId;
+    window.currentTab = tabId;
 
     // Mobile: Auto-close menu on selection
     if (window.innerWidth < 768) {
@@ -314,6 +345,8 @@ function switchTab(tabId) {
         try {
             if (tabId === 'dashboard') {
                 updateTimeAndStatus();
+                updateDashboardStats(); // Refresh stats when returning to dashboard
+                renderModules();
                 renderResources();
             }
             if (tabId === 'seating') renderSeating();
@@ -329,9 +362,12 @@ function switchTab(tabId) {
         } catch (e) {
             console.error(`Error initializing ${tabId}:`, e);
         }
-    }
 
-    lucide.createIcons();
+        // 4. Initialize Lucide icons ONLY for the newly shown section
+        lucide.createIcons({
+            node: targetEl
+        });
+    }
 }
 
 function toggleMobileMenu() {
@@ -445,22 +481,29 @@ function updateTimeAndStatus() {
     // 更新日期顯示
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} ${days[now.getDay()]}`;
-    document.getElementById('currentDate').innerText = dateStr;
-    document.getElementById('currentTime').innerText = `${hours}:${minutes}:${seconds}`;
+
+    const dateEl = getCachedElement('currentDate');
+    const timeEl = getCachedElement('currentTime');
+
+    if (dateEl) dateEl.innerText = dateStr;
+    if (timeEl) timeEl.innerText = `${hours}:${minutes}:${seconds}`;
 
     const currentTimeVal = now.getHours() * 60 + now.getMinutes();
     const day = now.getDay();
     const dayIndex = day - 1; // 0-4 (Mon-Fri)
 
-    const currentClassDisplay = document.getElementById('currentClassDisplay');
-    const countdownText = document.getElementById('countdownText');
-    const periodLabel = document.getElementById('currentPeriodLabel');
-    const timeRange = document.getElementById('periodTimeRange');
-    const statusMsg = document.getElementById('classStatusMsg');
-    const autoBtn = document.getElementById('autoSwitchBtn');
-    const timerContainer = document.getElementById('timerContainer');
-    const timerLabel = document.getElementById('timerLabel');
-    const classInfoHeading = document.getElementById('classInfoHeading');
+    const currentClassDisplay = getCachedElement('currentClassDisplay');
+    const countdownText = getCachedElement('countdownText');
+    const periodLabel = getCachedElement('currentPeriodLabel');
+    const timeRange = getCachedElement('periodTimeRange');
+    const statusMsg = getCachedElement('classStatusMsg');
+    const autoBtn = getCachedElement('autoSwitchBtn');
+    const timerContainer = getCachedElement('timerContainer');
+    const timerLabel = getCachedElement('timerLabel');
+    const classInfoHeading = getCachedElement('classInfoHeading');
+
+    // Safety check for UI elements (dashboard section)
+    if (!currentClassDisplay || !periodLabel) return;
 
     // 1. 檢查是否正在「上課中」
     let foundPeriod = null;
@@ -598,6 +641,7 @@ function initClassSelector() {
     sel.onchange = (e) => {
         currentClass = e.target.value;
         selectedIndices.clear(); // 切換班級時清空選擇
+        saveData(); // Persist selection 
         updateDashboardStats();
         if (currentTab === 'seating') renderSeating();
         if (currentTab === 'records') renderRecordsPage();
@@ -769,7 +813,6 @@ function renderSeating() {
     if (!config.pcNumbers) config.pcNumbers = {};
 
     // 更新工具列狀態
-    // Count active (non-absent) students
     const activeKeys = Object.keys(students).filter(k => students[k] && students[k].status !== 'absent');
     const totalActive = activeKeys.length;
 
@@ -788,13 +831,24 @@ function renderSeating() {
     // 更新全選按鈕與計數
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     if (selectAllCheckbox) {
-        // Checkbox state depends on ACTIVE students
         const isAllActiveSelected = totalActive > 0 && selectedActiveCount === totalActive;
         selectAllCheckbox.checked = isAllActiveSelected;
         selectAllCheckbox.indeterminate = selectedCount > 0 && !isAllActiveSelected;
     }
     const countLabel = document.getElementById('selectionCount');
     if (countLabel) countLabel.innerText = `(${selectedCount})`;
+
+    // 控制「多選學生」按鈕的狀態
+    const btnEnable = document.getElementById('btnEnableSelection');
+    if (btnEnable) {
+        if (isSelectionMode) {
+            btnEnable.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5"></i> 取消多選';
+            btnEnable.className = "bg-slate-700 text-slate-300 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-slate-600";
+        } else {
+            btnEnable.innerHTML = '<i data-lucide="check-square" class="w-3.5 h-3.5"></i> 多選學生';
+            btnEnable.className = "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-indigo-500/30";
+        }
+    }
 
     // 更新按鈕啟用狀態
     ['btnBatchAdd', 'btnBatchSub'].forEach(id => {
@@ -809,7 +863,6 @@ function renderSeating() {
         const slot = document.createElement('div');
         const s = students[i];
 
-        // 設定插槽為放置目標
         slot.className = `border rounded-xl min-h-[110px] flex flex-col items-center justify-center relative group transition-all duration-200`;
         slot.setAttribute('ondragover', 'handleDragOver(event)');
         slot.setAttribute('ondrop', `handleDrop(event, ${i})`);
@@ -822,18 +875,14 @@ function renderSeating() {
 
             slot.className += ` ${isSelected ? 'border-indigo-500 bg-indigo-900/20 ring-1 ring-indigo-500' : 'border-slate-800 bg-slate-900/30 hover:border-slate-600'}`;
 
-            // 內容區塊設為可拖曳
-            // --- 卡片設計優化 ---
             let statusColorClass = '';
             let statusIcon = '';
-            let scoreClass = 'bg-slate-700 text-slate-300'; // Default zero/neutral
+            let scoreClass = 'bg-slate-700 text-slate-300';
 
-            // 根據分數給予不同熱度顏色
             if (s.score > 0) scoreClass = 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-emerald-500/20 shadow-lg';
             if (s.score < 0) scoreClass = 'bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-rose-500/20 shadow-lg';
             if (s.score === 0) scoreClass = 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300';
 
-            // 狀態樣式與圖示
             if (s.status === 'present') {
                 statusColorClass = 'bg-slate-800/50 border-slate-700';
                 statusIcon = `<div class="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>`;
@@ -858,41 +907,45 @@ function renderSeating() {
             slot.innerHTML = `
                     <div class="student-card w-full h-full relative group select-none transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98]"
                          draggable="true" 
+                         onclick="toggleSelection(event, ${i})"
                          ondragstart="handleDragStart(event, ${i})"
                          ondragend="handleDragEnd(event)">
                         
-                        <!-- 卡片本體 -->
                         <div class="absolute inset-0 rounded-xl border backdrop-blur-sm shadow-sm transition-all duration-300 ${statusColorClass} ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-900/20 z-10' : 'hover:border-slate-500 hover:shadow-md hover:bg-slate-800/80'} flex flex-col overflow-hidden">
                             ${genderAccent}
                             
-                                <!-- 頂部資訊列: 電腦編號 & 分數 -->
-                            <div class="flex justify-between items-start p-2 z-20">
-                                <div class="flex flex-col items-start" onclick="toggleSelection(${i}); event.stopPropagation();">
+                            <div class="flex justify-between items-start p-1.5 z-20">
+                                <div class="flex items-center gap-1.5">
+                                   <!-- 多選 Checkbox (僅在多選模式下顯示) -->
+                                   ${isSelectionMode ? `
+                                   <div class="w-5 h-5 flex items-center justify-center rounded border transition-all ${isSelected ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-transparent hover:border-slate-500'}"
+                                        onclick="toggleSelection(event, ${i}); event.stopPropagation();">
+                                       ${isSelected ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
+                                   </div>
+                                   ` : ''}
+
                                    <!-- 電腦編號 Badge -->
-                                   <div class="font-mono text-xs font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/80 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/50 border-slate-700/50 hover:bg-sky-900/80 hover:text-sky-300 opacity-30 group-hover:opacity-100'}"
+                                   <div class="pc-badge-wrapper font-mono text-base font-extrabold px-2.5 py-0.5 rounded border flex items-center gap-1 cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/80 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/50 border-slate-700/50 hover:bg-sky-900/80 hover:text-sky-300 opacity-30 group-hover:opacity-100'}"
                                         title="設定電腦編號(Shift+點擊可設為不開放座位)"
                                         onclick="if (event.shiftKey) { toggleSeatAvailability(${i}); } else { setPcNumber(${i}); } event.stopPropagation();">
-                                       ${isSelected ? '<i data-lucide="check" class="w-3.5 h-3.5 text-indigo-400"></i>' : '<i data-lucide="monitor" class="w-3 h-3 inline-block -mt-0.5 pointer-events-none"></i>'}
-                                       <span class="pointer-events-none">${config.pcNumbers[i] || '+'}</span>
+                                       <i data-lucide="monitor" class="pc-icon w-2.5 h-2.5"></i>
+                                       <span>${config.pcNumbers[i] || '+'}</span>
                                    </div>
                                 </div>
                                 
                                 <div class="flex items-center gap-1.5">
-                                    <!-- 分數 Badge -->
-                                    <div class="box-score font-mono font-black text-sm px-2 py-0.5 rounded-md flex items-center shadow-sm backdrop-blur-md cursor-default ${scoreClass}">
+                                    <div class="box-score font-mono font-black text-base px-2 py-0.5 rounded-md flex items-center shadow-sm backdrop-blur-md cursor-default ${scoreClass}">
                                         ${s.score > 0 ? '+' : ''}${s.score}
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- 主要內容: 座號與名字 -->
-                            <div class="flex-1 flex flex-col items-center justify-center -mt-1 px-1 relative z-10 cursor-pointer" 
-                                 onclick="openStatusModal(${i})" title="設定狀態">
-                                <div class="font-bold text-base text-slate-200 tracking-wide text-center leading-tight drop-shadow-md group-hover:text-white transition-colors truncate w-full px-1">
-                                    <span class="text-slate-400 font-mono text-sm mr-1">${s.seatNo}</span>${s.name}
+                            <div class="flex-1 flex flex-col items-center justify-center py-1 px-1 relative z-10 cursor-pointer" 
+                                 onclick="openStatusModal(${i}); event.stopPropagation();" title="設定狀態">
+                                <div class="font-bold text-2xl text-slate-200 tracking-wide text-center leading-tight drop-shadow-md group-hover:text-white transition-colors truncate w-full px-1">
+                                    <span class="text-slate-400 font-mono text-base mr-1">${s.seatNo}</span>${s.name}
                                 </div>
                                 
-                                <!-- 詳細狀態標籤 (若有) -->
                                 ${(s.status !== 'present') ? `
                                 <div class="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border max-w-full truncate
                                     ${s.status === 'absent' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}">
@@ -902,8 +955,7 @@ function renderSeating() {
                                 ` : ''}
                             </div>
 
-                            <!-- 底部懸浮動作列 (Hover顯示) -->
-                            <div class="w-full h-[36px] mt-auto flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 pb-2 z-30">
+                            <div class="w-full h-[30px] mt-auto flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 pb-1.5 z-30">
                                  <button onclick="updateScore(${i}, 1); event.stopPropagation();" 
                                     class="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/50 flex items-center justify-center transition-transform active:scale-90 hover:scale-110 border border-emerald-400/30">
                                     <i data-lucide="plus" class="w-4 h-4"></i>
@@ -914,17 +966,16 @@ function renderSeating() {
                                 </button>
                             </div>
                             
-                            <!-- 裝飾背景光暈 -->
                             <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-xl pointer-events-none group-hover:from-white/10 transition-all"></div>
                         </div>
                     </div>`;
         } else {
             const isUnavailable = config.unavailableSeats && config.unavailableSeats.includes(i);
             const emptyPcBadge = `
-                <div class="absolute top-2 left-2 z-40 font-mono text-xs font-bold px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/60 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/30 border-slate-700/30 hover:bg-sky-900/60 hover:text-sky-300 opacity-0 group-hover:opacity-100'}"
+                <div class="pc-badge-wrapper absolute top-2 left-2 z-40 font-mono text-base font-bold px-2.5 py-0.5 rounded border cursor-pointer transition-colors ${config.pcNumbers[i] ? 'text-sky-300 bg-sky-900/60 border-sky-700/50 hover:bg-sky-800' : 'text-slate-500 bg-slate-800/30 border-slate-700/30 hover:bg-sky-900/60 hover:text-sky-300 opacity-0 group-hover:opacity-100'}"
                      title="設定電腦編號"
                      onclick="setPcNumber(${i}); event.stopPropagation();">
-                    <i data-lucide="monitor" class="w-3 h-3 inline-block -mt-0.5 text-slate-500"></i> <span class="pointer-events-none">${config.pcNumbers[i] || '+'}</span>
+                    <i data-lucide="monitor" class="pc-icon w-3 h-3 inline-block -mt-0.5 text-slate-500"></i> <span class="pointer-events-none">${config.pcNumbers[i] || '+'}</span>
                 </div>`;
 
             if (isUnavailable) {
@@ -1196,11 +1247,40 @@ function confirmApplySettings() {
     }
 }
 
-function toggleSelection(index) {
-    if (selectedIndices.has(index)) {
-        selectedIndices.delete(index);
+function toggleSelection(event, index) {
+    if (!currentClass || !classesData[currentClass]) return;
+
+    // 如果不是多選模式且沒有按下 Shift/Ctrl，則不允許選取 (除非是透過點擊電腦編號等特定位置)
+    if (!isSelectionMode && !(event && (event.shiftKey || event.ctrlKey || event.metaKey))) return;
+
+    const data = classesData[currentClass];
+
+    // Shift 鍵支援範圍選取
+    if (event && event.shiftKey && lastSelectedIndexSelection !== null) {
+        const start = Math.min(lastSelectedIndexSelection, index);
+        const end = Math.max(lastSelectedIndexSelection, index);
+
+        // 判斷是要全選還是全取消 (根據當前點擊目標的狀態的反向)
+        const willSelect = !selectedIndices.has(index);
+
+        for (let i = start; i <= end; i++) {
+            // 只有有學生的位置且非缺席才選取
+            if (data.students[i] && data.students[i].status !== 'absent') {
+                if (willSelect) selectedIndices.add(i);
+                else selectedIndices.delete(i);
+            }
+        }
     } else {
-        selectedIndices.add(index);
+        // 一般單選
+        if (selectedIndices.has(index)) {
+            selectedIndices.delete(index);
+        } else {
+            // 只有有學生的座位才能選取
+            if (data.students[index]) {
+                selectedIndices.add(index);
+            }
+        }
+        lastSelectedIndexSelection = index;
     }
     renderSeating();
 }
@@ -1214,6 +1294,19 @@ function toggleSelectAll(isChecked) {
                 selectedIndices.add(parseInt(key));
             }
         });
+    }
+    renderSeating();
+}
+
+function toggleSelectionMode(forceValue) {
+    if (typeof forceValue === 'boolean') {
+        isSelectionMode = forceValue;
+    } else {
+        isSelectionMode = !isSelectionMode;
+    }
+
+    if (!isSelectionMode) {
+        selectedIndices.clear(); // 關閉模式時清除選取
     }
     renderSeating();
 }
@@ -1440,7 +1533,9 @@ const SoundFX = {
 function confirmScore(reason) {
     if (!pendingScoreAction) return;
     const { targets, delta, isBatch } = pendingScoreAction;
-    const data = classesData[currentClass];
+    // Always use the latest shared data
+    const activeClassesData = window.classesData || classesData;
+    const data = activeClassesData[currentClass];
 
     // 播放音效
     if (delta > 0) SoundFX.playPositive();
@@ -1468,6 +1563,7 @@ function confirmScore(reason) {
     // 2. 如果是批次操作，立即清除選取狀態
     if (isBatch) {
         selectedIndices.clear();
+        isSelectionMode = false; // 批次執行完畢後自動關閉多選模式
     }
 
     // 3. 儲存並重新渲染 (此時若為批次，選取狀態已消失)
@@ -1543,6 +1639,26 @@ function showResultModal(targets, delta, reason, isBatch) {
 function batchUpdateScore(delta) {
     if (selectedIndices.size === 0) return;
     openScoreModal(Array.from(selectedIndices), delta, true);
+}
+
+// --- 介面控制 ---
+function toggleSeatingSettingsMenu() {
+    const menu = document.getElementById('seatingSettingsMenu');
+    if (!menu) return;
+    menu.classList.toggle('hidden');
+    menu.classList.toggle('animate-in', !menu.classList.contains('hidden'));
+
+    // 點擊外面自動收合
+    if (!menu.classList.contains('hidden')) {
+        const closer = (e) => {
+            const btn = document.getElementById('btnSeatingSettings');
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closer);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closer), 10);
+    }
 }
 
 function updateScore(index, delta) {
@@ -2524,7 +2640,10 @@ function renderResources() {
             </div>
         `;
     }).join('');
-    lucide.createIcons();
+
+    lucide.createIcons({
+        node: grid
+    });
 }
 
 function scrollResources(direction) {
@@ -2775,7 +2894,8 @@ function toggleResSidebar() {
 
 
 function openResourceDetail(id) {
-    currentTab = 'resource-detail'; // 防止 Google Sync 完成後跳回 Dashboard
+    currentTab = 'resource-detail';
+    window.currentTab = 'resource-detail'; // Ensure global sync
     const resource = teachingResources.find(r => r.id === id);
     if (!resource) return;
 
@@ -3675,7 +3795,9 @@ function renderModules() {
         `;
     }).join('');
 
-    lucide.createIcons();
+    lucide.createIcons({
+        node: container
+    });
 }
 
 function toggleModuleReorder() {

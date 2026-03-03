@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=Outfit:wght@400;500;700;800;900&display=swap');
+/* Font imports moved to HTML for performance */
 
 body {
     background-color: #0f172a;
@@ -331,14 +331,22 @@ h6,
 .export-mode .student-card {
     transition: none !important;
     transform: none !important;
+    overflow: visible !important;
 }
 
-/* Hide the normal top flex container but keep it around so it doesn't break layout */
-.export-mode .student-card .flex.justify-between.items-start.p-2.z-20 {
-    position: absolute;
-    top: 0 !important;
+.export-mode .student-card>div {
+    overflow: visible !important;
+}
+
+/* Reset top container for export */
+.export-mode .student-card [class*="p-1.5"] {
+    position: absolute !important;
+    top: 2px !important;
     left: 2px !important;
+    right: 2px !important;
     padding: 0 !important;
+    height: auto !important;
+    z-index: 40 !important;
 }
 
 /* Hide the score inside the top container just in case */
@@ -346,71 +354,79 @@ h6,
     display: none !important;
 }
 
-/* The container holding the PC number */
-.export-mode .font-mono.text-xs.font-bold.px-1\.5,
-.export-mode>div>.absolute.top-2.left-2.z-40.font-mono {
-    font-size: clamp(1rem, 2vw, 1.5rem) !important;
-    /* Larger PC Number */
-    padding: 4px 8px !important;
-    background-color: rgba(15, 23, 42, 0.8) !important;
-    /* Slight dark bg to read easily over contents */
-    border-radius: 8px !important;
-    border-color: transparent !important;
-    color: #38bdf8 !important;
-    /* sky-400 */
-}
-
-/* Force empty seat badge position */
-.export-mode>div>.absolute.top-2.left-2.z-40.font-mono {
-    top: 0 !important;
-    left: 2px !important;
-}
-
-/* Hide icon to save space */
-.export-mode .font-mono.text-xs.font-bold.px-1\.5 svg,
-.export-mode .font-mono.text-xs.font-bold.px-1\.5 i,
-.export-mode>div>.absolute.top-2.left-2.z-40.font-mono svg,
-.export-mode>div>.absolute.top-2.left-2.z-40.font-mono i {
+/* Hide icons to save space */
+.export-mode .pc-badge-wrapper .pc-icon {
     display: none !important;
 }
 
-/* Central Block containing Seat No and Name */
-.export-mode .student-card .flex-1.flex.flex-col.items-center.justify-center {
+/* The container holding the PC number - Consistent style for all seats */
+.export-mode .pc-badge-wrapper {
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    z-index: 50 !important;
+    font-size: clamp(1.1rem, 2.2vw, 1.6rem) !important;
+    font-weight: 800 !important;
+    padding: 2px 8px !important;
+    background-color: rgba(15, 23, 42, 0.85) !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    color: #38bdf8 !important;
+    /* sky-400 */
+    opacity: 1 !important;
+    display: flex !important;
+    align-items: center !important;
     justify-content: center !important;
+    min-width: 35px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Central Block containing Seat No and Name - Force Center */
+.export-mode .student-card .flex-1 {
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 0 !important;
+    /* REMOVE ALL PADDING */
+    margin: 0 !important;
+    width: 100% !important;
     height: 100% !important;
-    padding: 0 0.5rem 1rem 0.5rem !important;
-    /* Move up by having more bottom padding */
-    /* Maximize content area */
+    overflow: visible !important;
+    /* FIXED: allow descenders */
+    z-index: 10 !important;
 }
 
 /* Seat Number + Name container */
-.export-mode .student-card .font-bold.text-base {
-    font-size: clamp(1.2rem, 3.5vw, 2.5rem) !important;
-    /* Huge fluid text but capped to prevent overflow */
-    line-height: 1.1 !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    /* Prevents long names from ignoring bounds */
+.export-mode .student-card .font-bold {
+    font-size: clamp(1rem, 2.8vw, 2.2rem) !important;
     display: flex !important;
-    flex-direction: column !important;
+    flex-direction: row !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 100% !important;
-    height: 100% !important;
+    width: 95% !important;
+    height: auto !important;
+    gap: 0.5rem !important;
     padding: 0 !important;
-    margin-top: -1rem !important;
-    /* Visual optical adjustment to center within the box despite the computer number */
+    margin: 0 !important;
+    line-height: 1.2 !important;
+    /* FIXED: Prevent clipping of descenders */
+    overflow: visible !important;
+    white-space: nowrap !important;
+    /* Keep on one line */
+    text-overflow: clip !important;
 }
 
 /* Seat Number */
-.export-mode .student-card .text-slate-400.font-mono.text-sm.mr-1 {
-    font-size: clamp(1.2rem, 3vw, 2rem) !important;
-    margin-right: 0 !important;
-    margin-bottom: 0.5rem !important;
-    /* Increased spacing to name */
-    display: block !important;
+.export-mode .student-card span.font-mono {
+    font-size: 0.8em !important;
+    /* Scale relative to name */
+    margin: 0 !important;
+    display: inline-block !important;
     color: #94a3b8 !important;
-    /* slate-400 */
+    font-weight: 500 !important;
 }
 
 /* Hide unavail seat ban icon */
@@ -419,4 +435,32 @@ h6,
     width: 3rem !important;
     height: 3rem !important;
     opacity: 0.3 !important;
+}
+
+/* Seating Settings Dropdown Drop Shadow & Animation */
+#seatingSettingsMenu {
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+        0 20px 25px -5px rgba(0, 0, 0, 0.5),
+        0 10px 10px -5px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transform-origin: top right;
+}
+
+#seatingSettingsMenu.animate-in {
+    animation: dropdown-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dropdown-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }

@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IT Class Master Pro | 資訊課教學管理系統</title>
+
+    <!-- Performance Optimization: Preconnect & Font Loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=Outfit:wght@400;500;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Scripts with Defere -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,7 +29,7 @@
         }
     </script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" defer></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 </head>
@@ -314,86 +323,122 @@
 
         <!-- 分頁 2: 座位管理 -->
         <section id="view-seating" class="hidden animate-in slide-in-from-bottom-4 duration-500">
-            <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
-                <div class="flex items-center gap-6">
-                    <h2 class="text-2xl font-bold flex items-center gap-2">
-                        <i data-lucide="layout-grid" class="text-sky-400"></i> 座位點名表
-                    </h2>
+            <!-- Unified Seating Toolbar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6 bg-slate-800/40 p-2.5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl relative z-[999]"
+                id="seatingMainToolbar">
+
+                <!-- Left: Status Legend & Shortcuts -->
+                <div class="flex items-center gap-3">
                     <div
-                        class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700 font-medium">
-                        <span class="text-xs text-slate-400 px-1 hidden md:inline">網格</span>
-                        <input type="number" id="gridCols" min="1" max="12"
-                            class="w-10 bg-slate-900 border border-slate-600 rounded px-1 text-center text-sm outline-none focus:border-sky-500"
-                            onchange="updateLayout()">
-                        <span class="text-slate-500">×</span>
-                        <input type="number" id="gridRows" min="1" max="12"
-                            class="w-10 bg-slate-900 border border-slate-600 rounded px-1 text-center text-sm outline-none focus:border-sky-500"
-                            onchange="updateLayout()">
-                        <div class="h-4 w-px bg-slate-600 mx-1 hidden sm:block"></div>
-                        <select id="gridLayoutMode" onchange="updateLayoutMode()"
-                            class="bg-slate-900 border border-slate-600 rounded px-1 py-0.5 text-xs text-slate-300 outline-none focus:border-sky-500 hidden sm:block">
-                            <option value="rtl">右至左排序</option>
-                            <option value="ltr">左至右排序</option>
-                        </select>
-                        <button onclick="resetLayoutSort()" title="重新套用預設排序"
-                            class="p-1 px-2 rounded bg-sky-500/10 text-sky-400 hover:bg-sky-500 hover:text-white transition-colors text-xs font-bold border border-sky-500/20">重新排列</button>
-                        <button onclick="openApplySettingsModal()" title="將座位設定套用至其他班級"
-                            class="p-1 px-2 rounded bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-colors text-xs font-bold border border-indigo-500/20 ml-1 flex items-center gap-1"><i
-                                data-lucide="copy" class="w-3 h-3"></i> 套用設定</button>
-                        <button onclick="exportSeatingChart()" title="下載座位表圖片"
-                            class="p-1 px-2 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors text-xs font-bold border border-emerald-500/20 ml-1 flex items-center gap-1"><i
-                                data-lucide="download" class="w-3 h-3"></i> 匯出圖片</button>
+                        class="flex items-center gap-2.5 bg-slate-900/60 px-3 py-1.5 rounded-xl border border-slate-700/50 text-[11px] font-bold">
+                        <span class="flex items-center gap-1.5"><span
+                                class="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span>
+                            出席</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                            缺席</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                            遲到</span>
                     </div>
-                </div>
-                <div class="flex gap-4 items-center">
+
                     <button onclick="switchTab('leaderboard')"
-                        class="bg-pink-600/20 text-pink-400 hover:bg-pink-600 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-pink-500/30">
+                        class="bg-pink-600/10 text-pink-400 hover:bg-pink-600 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-pink-500/20 shadow-sm">
                         <i data-lucide="trophy" class="w-3.5 h-3.5"></i> 排行榜
                     </button>
+                </div>
 
-                    <div class="flex items-center gap-4 text-xs font-medium">
-                        <span class="flex items-center gap-1.5"><span
-                                class="w-2.5 h-2.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-                            出席</span>
-                        <span class="flex items-center gap-1.5"><span
-                                class="w-2.5 h-2.5 bg-red-500 rounded-full"></span> 缺席</span>
-                        <span class="flex items-center gap-1.5"><span
-                                class="w-2.5 h-2.5 bg-yellow-500 rounded-full"></span> 遲到</span>
+                <!-- Center: Selection & Batch Actions -->
+                <div class="flex items-center gap-2 bg-slate-900/40 p-1.5 rounded-xl border border-slate-700/30">
+                    <div class="flex items-center gap-2.5 pl-2 pr-3 border-r border-slate-700/50">
+                        <label
+                            class="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none group">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"
+                                class="w-4 h-4 rounded bg-slate-800 border-slate-600 text-indigo-500 focus:ring-offset-0 focus:ring-1 focus:ring-indigo-500">
+                            全選 <span id="selectionCount" class="text-[10px] opacity-60 font-mono">(0)</span>
+                        </label>
+
+                        <button id="btnEnableSelection" onclick="toggleSelectionMode()"
+                            class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-indigo-500/30 whitespace-nowrap">
+                            <i data-lucide="check-square" class="w-3.5 h-3.5"></i> 多選學生
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 px-1">
+                        <button onclick="batchUpdateScore(1)" id="btnBatchAdd"
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed">
+                            <i data-lucide="plus" class="w-3 h-3"></i> 加分
+                        </button>
+                        <button onclick="batchUpdateScore(-1)" id="btnBatchSub"
+                            class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed">
+                            <i data-lucide="minus" class="w-3 h-3"></i> 扣分
+                        </button>
+                        <div class="w-px h-5 bg-slate-700/50 mx-1"></div>
+                        <button onclick="saveAttendance()"
+                            class="bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i> 儲存
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right: Config Dropdown -->
+                <div class="relative">
+                    <button id="btnSeatingSettings" onclick="toggleSeatingSettingsMenu()"
+                        class="bg-slate-700/50 hover:bg-slate-600 text-slate-200 px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-slate-600/50 group">
+                        <i data-lucide="settings-2"
+                            class="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors"></i>
+                        設定與匯出
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                    </button>
+
+                    <!-- Settings Dropdown Content -->
+                    <div id="seatingSettingsMenu"
+                        class="hidden absolute right-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl z-[100] p-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div class="space-y-5">
+                            <div>
+                                <label
+                                    class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">網格維度與排列方式</label>
+                                <div
+                                    class="flex items-center gap-2 bg-slate-900/50 p-2.5 rounded-xl border border-slate-700">
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="gridCols" min="1" max="12"
+                                            class="w-10 bg-slate-800 border border-slate-600 rounded px-1 text-center text-xs py-1 outline-none focus:border-sky-500"
+                                            onchange="updateLayout()">
+                                        <span class="text-slate-500 text-xs">×</span>
+                                        <input type="number" id="gridRows" min="1" max="12"
+                                            class="w-10 bg-slate-800 border border-slate-600 rounded px-1 text-center text-xs py-1 outline-none focus:border-sky-500"
+                                            onchange="updateLayout()">
+                                    </div>
+                                    <div class="h-4 w-px bg-slate-700 mx-1"></div>
+                                    <select id="gridLayoutMode" onchange="updateLayoutMode()"
+                                        class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-[11px] text-slate-300 outline-none focus:border-sky-500">
+                                        <option value="rtl">右至左 (一般)</option>
+                                        <option value="ltr">左至右</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block">管理與輸出</label>
+                                <button onclick="resetLayoutSort()"
+                                    class="w-full text-left bg-slate-700/30 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all border border-transparent hover:border-slate-600">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 重整排序
+                                </button>
+                                <button onclick="openApplySettingsModal()"
+                                    class="w-full text-left bg-slate-700/30 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all border border-transparent hover:border-slate-600">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> 套用設定至其他班級
+                                </button>
+                                <hr class="border-slate-700/50 my-2">
+                                <button onclick="exportSeatingChart()"
+                                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30">
+                                    <i data-lucide="download" class="w-4 h-4"></i> 匯出座位表圖片
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="w-full bg-slate-800/50 p-3 rounded-xl border border-slate-700 flex items-center gap-4 mb-4">
-                <div class="flex items-center gap-2 border-r border-slate-700 pr-4">
-                    <label class="flex items-center gap-2 text-sm font-bold text-slate-300 cursor-pointer select-none">
-                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"
-                            class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-offset-0 focus:ring-1 focus:ring-indigo-500">
-                        全選名單
-                    </label>
-                    <span id="selectionCount"
-                        class="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-0.5 rounded-full">(0)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-500 mr-1">批次動作:</span>
-                    <button onclick="batchUpdateScore(1)"
-                        class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all active:scale-95 shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                        id="btnBatchAdd">
-                        <i data-lucide="plus" class="w-3 h-3"></i> 加分
-                    </button>
-                    <button onclick="batchUpdateScore(-1)"
-                        class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all active:scale-95 shadow-lg shadow-rose-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                        id="btnBatchSub">
-                        <i data-lucide="minus" class="w-3 h-3"></i> 扣分
-                    </button>
-                    <div class="w-px h-6 bg-slate-700 mx-2"></div>
-                    <button onclick="saveAttendance()"
-                        class="bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 transition-all ml-1">
-                        <i data-lucide="save" class="w-3 h-3"></i> 儲存點名
-                    </button>
-                </div>
-            </div>
-
-            <div id="seatingGrid" class="grid gap-4 mb-16 max-w-5xl mx-auto"></div>
+            <div id="seatingGrid" class="grid gap-2 mb-16 max-w-7xl mx-auto"></div>
 
             <div class="flex justify-center">
                 <div
@@ -2334,7 +2379,7 @@
         </div>
     </div>
 
-    <script src="js/script.js"></script>
+    <!-- script.js is loaded later at the end of the body -->
     <!-- 學生管理 Modal -->
     <div id="studentManagerModal"
         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] hidden flex items-center justify-center p-4 animate-in fade-in duration-200">
