@@ -3119,7 +3119,7 @@ function renderAttendanceList(targetId) {
                     }).join('') +
                     `</div>`;
             } else {
-                detailHtml = `<div class="mt-2 text-xs text-emerald-500/50 flex items-center"><i data-lucide="check" class="w-3 h-3 mr-1"></i> 全勤</div>`;
+                detailHtml = `<div class="mt-2 text-xs text-emerald-500/50 flex items-center"><i data-lucide="check" class="w-3 h-3 mr-1"></i> 全員出席</div>`;
             }
 
             // Note Logic
@@ -3130,37 +3130,42 @@ function renderAttendanceList(targetId) {
             const icon = hasNote ? "file-text" : "file-plus";
 
             return `
-                    <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 hover:border-slate-500 transition-all cursor-pointer group" onclick="toggleAttendanceNote(${log.originalIdx}, event)">
-                        <div class="flex justify-between items-start mb-1">
-                            <div>
-                                <div class="text-sky-400 font-bold font-mono text-sm">${dateStr}</div>
-                                <div class="text-slate-500 font-mono text-xs">${timeStr}</div>
-                            </div>
-                            <div class="flex flex-col items-end gap-1 text-xs font-bold">
-                                <span class="text-emerald-500">出席 ${log.stats.present}</span>
-                                <div class="flex gap-2">
-                                    <span class="text-rose-500">缺 ${log.stats.absent}</span>
-                                    <span class="text-amber-500">遲 ${log.stats.late}</span>
+                    <div class="flex items-start gap-3 bg-slate-900 p-3 rounded-xl border border-slate-700 hover:border-slate-500 transition-all cursor-pointer group" onclick="toggleAttendanceNote(${log.originalIdx}, event)">
+                        <div class="pt-1" onclick="event.stopPropagation()">
+                             <input type="checkbox" value="${log.originalIdx}" class="attendance-checkbox w-4 h-4 rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-offset-0 focus:ring-1 focus:ring-sky-500" onchange="updateAttendanceDeleteBtnState()">
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start mb-1">
+                                <div>
+                                    <div class="text-sky-400 font-bold font-mono text-sm">${dateStr}</div>
+                                    <div class="text-slate-500 font-mono text-xs">${timeStr}</div>
+                                </div>
+                                <div class="flex flex-col items-end gap-1 text-xs font-bold">
+                                    <span class="text-emerald-500">出席 ${log.stats.present}</span>
+                                    <div class="flex gap-2">
+                                        <span class="text-rose-500">缺 ${log.stats.absent}</span>
+                                        <span class="text-amber-500">遲 ${log.stats.late}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        ${detailHtml}
-                        
-                        <!-- Note Indicator -->
-                        <div class="mt-2 flex justify-end relative z-10" id="note-display-${log.originalIdx}">
-                            <div class="text-[10px] ${noteColor} flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity bg-slate-800/50 px-2 py-1 rounded-full">
-                                <i data-lucide="${icon}" class="w-3 h-3"></i>
-                                <span>${noteLabel}</span>
+                            ${detailHtml}
+                            
+                            <!-- Note Indicator -->
+                            <div class="mt-2 flex justify-end relative z-10" id="note-display-${log.originalIdx}">
+                                <div class="text-[10px] ${noteColor} flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity bg-slate-800/50 px-2 py-1 rounded-full">
+                                    <i data-lucide="${icon}" class="w-3 h-3"></i>
+                                    <span>${noteLabel}</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Hidden Editor -->
-                        <div class="hidden mt-3 pt-2 border-t border-slate-800 animate-in slide-in-from-top-1" id="note-editor-${log.originalIdx}" onclick="event.stopPropagation()">
-                            <textarea id="note-input-${log.originalIdx}" 
-                                class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-xs text-white focus:ring-1 focus:ring-sky-500 outline-none resize-none placeholder-slate-600" 
-                                rows="3" placeholder="記錄上課進度或特殊狀況...">${noteContent}</textarea>
-                            <div class="flex justify-end gap-2 mt-2">
-                                <button onclick="saveAttendanceNote(${log.originalIdx}, event)" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 rounded text-xs shadow-lg">儲存</button>
+                            <!-- Hidden Editor -->
+                            <div class="hidden mt-3 pt-2 border-t border-slate-800 animate-in slide-in-from-top-1" id="note-editor-${log.originalIdx}" onclick="event.stopPropagation()">
+                                <textarea id="note-input-${log.originalIdx}" 
+                                    class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-xs text-white focus:ring-1 focus:ring-sky-500 outline-none resize-none placeholder-slate-600" 
+                                    rows="3" placeholder="記錄上課進度或特殊狀況...">${noteContent}</textarea>
+                                <div class="flex justify-end gap-2 mt-2">
+                                    <button onclick="saveAttendanceNote(${log.originalIdx}, event)" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 rounded text-xs shadow-lg">儲存</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3168,7 +3173,36 @@ function renderAttendanceList(targetId) {
         }).join('');
     }
     lucide.createIcons();
+    updateAttendanceDeleteBtnState();
 }
+
+function updateAttendanceDeleteBtnState() {
+    const checkedCount = document.querySelectorAll('.attendance-checkbox:checked').length;
+    const btn = document.getElementById('btnDeleteAttendance');
+    if (btn) {
+        btn.disabled = checkedCount === 0;
+        btn.innerHTML = checkedCount > 0 ? `<i data-lucide="trash-2" class="w-3 h-3"></i> 刪除紀錄 (${checkedCount})` : `<i data-lucide="trash-2" class="w-3 h-3"></i> 刪除已選`;
+        lucide.createIcons();
+    }
+}
+
+function deleteAttendanceLogs() {
+    const checkboxes = document.querySelectorAll('.attendance-checkbox:checked');
+    if (checkboxes.length === 0) return;
+
+    if (!confirm(`確定要刪除選取的 ${checkboxes.length} 筆點名紀錄嗎？此動作無法復原！`)) return;
+
+    const data = classesData[currentClass];
+    const indicesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+
+    indicesToDelete.forEach(idx => {
+        data.attendanceLogs.splice(idx, 1);
+    });
+
+    saveData();
+    renderAttendanceList('pageAttendanceList');
+}
+
 
 function toggleAttendanceNote(idx, event) {
     if (event.target.tagName === 'BUTTON' || event.target.tagName === 'TEXTAREA') return;
