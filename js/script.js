@@ -67,7 +67,17 @@ var scoreReasons = {
 };
 window.scoreReasons = scoreReasons;
 
-var sysSettings = { defaultCols: 6, defaultRows: 8, defaultLayoutMode: 'rtl' };
+var sysSettings = {
+    defaultCols: 6,
+    defaultRows: 8,
+    defaultLayoutMode: 'rtl',
+    backupReminder: {
+        enabled: false,
+        day: 5, // 週五
+        time: "16:00",
+        lastShownDate: "" // 防止重複提醒
+    }
+};
 window.sysSettings = sysSettings;
 
 // DOM Cache for performance
@@ -322,16 +332,22 @@ window.applySyncData = function (data) {
         window.textbookLinks = textbookLinks;
     }
     if (data.sysSettings) {
-        sysSettings = data.sysSettings;
+        // Robust merge to handle new settings fields
+        sysSettings = { ...sysSettings, ...data.sysSettings };
+        if (data.sysSettings.backupReminder) {
+            sysSettings.backupReminder = { ...sysSettings.backupReminder, ...data.sysSettings.backupReminder };
+        }
         window.sysSettings = sysSettings;
     }
-    if (data.currentClass && classesData[data.currentClass]) {
-        currentClass = data.currentClass;
-        window.currentClass = currentClass;
-    } else if (Object.keys(classesData).length > 0 && (!currentClass || !classesData[currentClass])) {
-        // Fallback: 如果目前沒選班級或選到的班級不存在，預設選第一個
-        currentClass = Object.keys(classesData).sort()[0];
-        window.currentClass = currentClass;
+    // 關鍵修正：同步時不應強制改變各分頁自己的「目前選取班級」，除非本地還是空的
+    if (!currentClass || !classesData[currentClass]) {
+        if (data.currentClass && classesData[data.currentClass]) {
+            currentClass = data.currentClass;
+            window.currentClass = currentClass;
+        } else if (Object.keys(classesData).length > 0) {
+            currentClass = Object.keys(classesData).sort()[0];
+            window.currentClass = currentClass;
+        }
     }
 
     console.log("Local variables updated from sync data.");
@@ -507,6 +523,7 @@ function saveTimeSettings() {
 }
 
 let lastPromptTime = "";
+let lastAttendanceReminder = "";
 
 function updateTimeAndStatus() {
     const now = new Date();
@@ -559,6 +576,9 @@ function updateTimeAndStatus() {
     // Safety check for UI elements (dashboard section)
     if (!currentClassDisplay || !periodLabel) return;
 
+    // 檢查備份提醒
+    checkBackupReminder(now);
+
     // 1. 檢查是否正在「上課中」
     let foundPeriod = null;
     if (day >= 1 && day <= 5) {
@@ -595,6 +615,36 @@ function updateTimeAndStatus() {
         const endTime = new Date(now);
         endTime.setHours(eh, em, 0);
         updateCountdown(now, endTime, countdownText);
+
+        // --- 檢查是否需要下課前儲存提醒 ---
+        if (targetClass) {
+            const diffMinutes = Math.floor((endTime - now) / 60000);
+            const reminderKey = `${nowStr}-${foundPeriod.id}`;
+
+            // 下課前 3 分鐘提醒，且今天這節課還沒提醒過
+            if (diffMinutes <= 3 && diffMinutes >= 0 && lastAttendanceReminder !== reminderKey) {
+                const targetData = classesData[targetClass];
+                const alreadySaved = targetData && targetData.attendanceLogs &&
+                    targetData.attendanceLogs.some(log => new Date(log.time).toDateString() === nowStr);
+
+                if (!alreadySaved) {
+                    lastAttendanceReminder = reminderKey;
+                    setTimeout(() => {
+                        if (confirm(`這節課即將結束！\n目前的「${targetClass}」尚未儲存今日點名紀錄。\n\n是否立即依照目前的狀態儲存點名？`)) {
+                            // 如果目前選取的不是這節課的班級，先切換
+                            if (currentClass !== targetClass) {
+                                currentClass = targetClass;
+                                window.currentClass = targetClass;
+                                initClassSelector();
+                                updateDashboardStats();
+                                if (currentTab === 'seating') renderSeating();
+                            }
+                            saveAttendance(false); // 執行儲存
+                        }
+                    }, 500);
+                }
+            }
+        }
 
         if (targetClass) {
             statusMsg.innerText = `正在進行 ${targetClass} 的課程...`;
@@ -671,6 +721,33 @@ function updateTimeAndStatus() {
             classInfoHeading.innerHTML = `目前課程：<span id="currentClassDisplay" class="text-slate-500">非上課時段</span>`;
             statusMsg.innerText = "辛苦了老師，目前非教學時段。";
             autoBtn.classList.add('hidden');
+        }
+    }
+}
+
+function checkBackupReminder(now) {
+    if (!sysSettings.backupReminder || !sysSettings.backupReminder.enabled) return;
+
+    const day = now.getDay();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const nowTimeStr = `${hours}:${minutes}`;
+    const nowDateStr = now.toDateString();
+
+    // 如果星期與時間符合，且今天還沒提醒過
+    if (day === sysSettings.backupReminder.day &&
+        nowTimeStr === sysSettings.backupReminder.time &&
+        sysSettings.backupReminder.lastShownDate !== nowDateStr) {
+
+        // 標記今日已提醒，避免彈窗狂跳
+        sysSettings.backupReminder.lastShownDate = nowDateStr;
+        saveData(true); // 僅存本地
+
+        // 顯示提醒視窗
+        const modal = document.getElementById('backupReminderModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            lucide.createIcons({ node: modal });
         }
     }
 }
@@ -1751,7 +1828,8 @@ function confirmStatus(status, note = '') {
         s.status = status;
         s.note = note; // 紀錄事由或時間
 
-        saveData();
+        // 改進：合併儲存邏輯。saveAttendance 會呼叫 saveData，不需重複呼叫。
+        // 這能減少同步鎖定的頻率，降低「跳動」感。
         renderSeating();
         updateDashboardStats();
         saveAttendance(true); // 自動更新儲存
@@ -2394,6 +2472,26 @@ function renderSettingsPage() {
     if (rowEl) rowEl.value = sysSettings.defaultRows || 8;
     const layoutEl = document.getElementById('sysDefLayout');
     if (layoutEl) layoutEl.value = sysSettings.defaultLayoutMode || 'rtl';
+
+    // Init Backup Reminder
+    const brEnabled = document.getElementById('backupReminderEnabled');
+    if (brEnabled) brEnabled.checked = sysSettings.backupReminder?.enabled || false;
+    const brDay = document.getElementById('backupReminderDay');
+    if (brDay) brDay.value = sysSettings.backupReminder?.day ?? 5;
+    const brTime = document.getElementById('backupReminderTime');
+    if (brTime) brTime.value = sysSettings.backupReminder?.time || "16:00";
+}
+
+function saveBackupReminderSettings() {
+    if (!sysSettings.backupReminder) {
+        sysSettings.backupReminder = { enabled: false, day: 5, time: "16:00", lastShownDate: "" };
+    }
+
+    sysSettings.backupReminder.enabled = document.getElementById('backupReminderEnabled').checked;
+    sysSettings.backupReminder.day = parseInt(document.getElementById('backupReminderDay').value);
+    sysSettings.backupReminder.time = document.getElementById('backupReminderTime').value;
+
+    saveData();
 }
 
 function saveSysDefaults() {
@@ -3460,14 +3558,14 @@ function revokeHistory(isPage = false) {
 
 function clearAllData() { if (confirm('重置？')) { localStorage.clear(); location.reload(); } }
 // --- 點名功能 ---
-function saveAttendance(isAuto = false) {
+function saveAttendance(isAuto = false, timestamp = null) {
     const data = classesData[currentClass];
     if (!data.attendanceLogs) data.attendanceLogs = [];
 
-    const now = new Date();
+    const now = timestamp ? new Date(timestamp) : new Date();
     const dateString = now.toDateString(); // e.g. "Fri Feb 02 2024"
 
-    // 檢查是否已有今日紀錄
+    // 檢查是否已有該日期紀錄
     let targetRecord = data.attendanceLogs.find(log => new Date(log.time).toDateString() === dateString);
 
     if (!targetRecord) {
@@ -3479,8 +3577,11 @@ function saveAttendance(isAuto = false) {
         };
         data.attendanceLogs.push(targetRecord);
     } else {
-        // 更新時間與內容
-        targetRecord.time = now.toISOString();
+        // 更新內容但保留時間戳記 (除非是手動儲存)
+        // 這能防止自動儲存時，紀錄在清單中頻繁「跳動」位置
+        if (!isAuto) {
+            targetRecord.time = now.toISOString();
+        }
         targetRecord.stats = { present: 0, absent: 0, late: 0, other: 0 };
         targetRecord.details = [];
     }
@@ -3504,13 +3605,62 @@ function saveAttendance(isAuto = false) {
 
     saveData();
 
+    // 如果在紀錄頁面，立即更新列表
+    if (currentTab === 'records') {
+        renderAttendanceList('pageAttendanceList');
+        if (window.lucide) lucide.createIcons();
+    }
+
     if (!isAuto) {
         // 手動觸發時才跳 Alert
         const counts = targetRecord.stats;
-        alert(`更新完成！\n出席: ${counts.present}\n缺席: ${counts.absent}\n遲到: ${counts.late}\n已更新今日點名紀錄。`);
+        alert(`更新完成！\n日期: ${now.toLocaleDateString()}\n出席: ${counts.present}\n缺席: ${counts.absent}\n遲到: ${counts.late}\n已更新該日點名紀錄。`);
     } else {
         console.log('Attendance auto-saved with details');
     }
+}
+
+function openManualAttendanceModal() {
+    const now = new Date();
+    // 預設今天與現在時間
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+
+    document.getElementById('manualAttendanceDate').value = `${year}-${month}-${day}`;
+    document.getElementById('manualAttendanceTime').value = `${hours}:${minutes}`;
+
+    document.getElementById('manualAttendanceModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeManualAttendanceModal() {
+    document.getElementById('manualAttendanceModal').classList.add('hidden');
+}
+
+function confirmManualAttendance() {
+    const dateVal = document.getElementById('manualAttendanceDate').value;
+    const timeVal = document.getElementById('manualAttendanceTime').value;
+
+    if (!dateVal || !timeVal) {
+        alert("請選擇日期與時間");
+        return;
+    }
+
+    // 將日期與時間組合成 Date 物件
+    // YYYY-MM-DD + T + HH:MM
+    const isoString = `${dateVal}T${timeVal}`;
+    const timestamp = new Date(isoString).getTime();
+
+    if (isNaN(timestamp)) {
+        alert("無效的日期或時間格式");
+        return;
+    }
+
+    saveAttendance(false, timestamp);
+    closeManualAttendanceModal();
 }
 
 function showAttendanceHistory() {

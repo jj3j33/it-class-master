@@ -601,6 +601,10 @@
                             <i data-lucide="calendar-check"></i> 點名紀錄
                         </h3>
                         <div class="flex items-center gap-2">
+                            <button onclick="openManualAttendanceModal()"
+                                class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all">
+                                <i data-lucide="plus" class="w-3 h-3"></i> 手動點名
+                            </button>
                             <span class="text-xs text-slate-500" id="attendanceCount">0 筆</span>
                             <button id="btnDeleteAttendance" onclick="deleteAttendanceLogs()" disabled
                                 class="bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
@@ -1920,6 +1924,74 @@
                     </div>
                 </div>
 
+                <!-- 每週備份提醒設定 -->
+                <div class="glass-panel p-6">
+                    <div class="flex justify-between items-center cursor-pointer select-none"
+                        onclick="toggleSettingsSection('backup-reminder')">
+                        <h2 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                            定期備份提醒
+                        </h2>
+                        <i data-lucide="chevron-down" id="chevron-backup-reminder"
+                            class="transition-transform duration-300 text-sky-400"></i>
+                    </div>
+
+                    <div id="wrapper-backup-reminder"
+                        class="grid grid-rows-[0fr] opacity-50 transition-all duration-300 ease-out">
+                        <div class="overflow-hidden">
+                            <div id="section-backup-reminder" class="mt-8 space-y-6 pb-2">
+                                <div class="bg-slate-900/50 p-6 rounded-2xl border border-white/5 space-y-6">
+                                    <div
+                                        class="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl border border-white/5">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                                <i data-lucide="bell" class="w-5 h-5"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="font-bold text-slate-200">啟用提醒</h4>
+                                                <p class="text-xs text-slate-500">系統將在指定時間提醒您手動匯出備份檔</p>
+                                            </div>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="backupReminderEnabled" class="sr-only peer"
+                                                onchange="saveBackupReminderSettings()">
+                                            <div
+                                                class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-bold text-slate-400 mb-2">每週提醒時間點</label>
+                                            <div class="flex gap-2">
+                                                <select id="backupReminderDay" onchange="saveBackupReminderSettings()"
+                                                    class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all">
+                                                    <option value="1">每週一</option>
+                                                    <option value="2">每週二</option>
+                                                    <option value="3">每週三</option>
+                                                    <option value="4">每週四</option>
+                                                    <option value="5">每週五</option>
+                                                    <option value="6">每週六</option>
+                                                    <option value="0">每週日</option>
+                                                </select>
+                                                <input type="time" id="backupReminderTime"
+                                                    onchange="saveBackupReminderSettings()"
+                                                    class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all">
+                                            </div>
+                                        </div>
+                                        <div class="flex items-end">
+                                            <p class="text-xs text-slate-500 italic pb-2">
+                                                * 提醒將以彈窗形式顯示，建議設定在您方便進行備份的時間（例如週五放學前）。
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Google Sheets Sync Configuration -->
                 <div class="glass-panel p-6">
                     <div class="flex justify-between items-center cursor-pointer select-none"
@@ -2698,6 +2770,73 @@
                 <button onclick="saveTextbookEdit()"
                     class="bg-sky-600 hover:bg-sky-500 px-6 py-2 rounded-lg text-white font-bold transition-colors shadow-[0_0_15px_rgba(14,165,233,0.3)]">儲存</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Manual Attendance Date/Time Modal -->
+    <div id="manualAttendanceModal"
+        class="fixed inset-0 z-[250] hidden bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <i data-lucide="calendar-plus" class="text-emerald-400"></i> 手動新增點名紀錄
+            </h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">選擇日期</label>
+                    <input type="date" id="manualAttendanceDate"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-400 mb-1">選擇時間</label>
+                    <input type="time" id="manualAttendanceTime"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors">
+                </div>
+                <div
+                    class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[11px] text-indigo-300 leading-relaxed">
+                    <p class="font-bold mb-1 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> 提示</p>
+                    系統將以「目前的座位表狀態」作為該時間點的紀錄。若當天已有紀錄，將會被此操作更新。
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-700">
+                <button onclick="closeManualAttendanceModal()"
+                    class="px-4 py-2 text-slate-400 hover:text-white rounded-lg transition-colors hover:bg-slate-700 font-bold text-sm">取消</button>
+                <button onclick="confirmManualAttendance()"
+                    class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg text-white font-bold transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] text-sm">儲存紀錄</button>
+            </div>
+        </div>
+    </div>
+    <!-- Backup Reminder Modal -->
+    <div id="backupReminderModal"
+        class="fixed inset-0 z-[500] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div
+            class="bg-slate-800 border border-indigo-500/50 rounded-3xl shadow-[0_0_50px_rgba(79,70,229,0.3)] p-8 w-full max-w-sm text-center relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl"></div>
+
+            <div
+                class="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg rotate-3">
+                <i data-lucide="archive" class="w-10 h-10 text-white -rotate-3 text-white"></i>
+            </div>
+
+            <h3 class="text-2xl font-bold text-white mb-2">該備份囉！</h3>
+            <p class="text-slate-400 mb-8 leading-relaxed">
+                這是您設定的每週定時備份提醒。<br>手動匯出備份檔可以多一層保障喔！
+            </p>
+
+            <div class="space-y-3">
+                <button
+                    onclick="exportOfflineFile(); document.getElementById('backupReminderModal').classList.add('hidden');"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-indigo-900/40 flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5"></i> 立即備份檔案
+                </button>
+                <button onclick="document.getElementById('backupReminderModal').classList.add('hidden')"
+                    class="w-full bg-slate-700/50 hover:bg-slate-700 text-slate-400 hover:text-white py-3 rounded-xl transition-colors font-bold">
+                    稍後再說
+                </button>
+            </div>
+
+            <p class="mt-6 text-[10px] text-slate-500 uppercase tracking-widest">系統維護提醒</p>
         </div>
     </div>
 </body>
