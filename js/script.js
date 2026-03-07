@@ -3231,6 +3231,10 @@ function renderAttendanceList(targetId) {
     const countLabel = document.getElementById('attendanceCount');
     if (countLabel) countLabel.innerText = `${logs.length} 筆資料`;
 
+    // 每次渲染時重置全選勾選框 (Reset Select All checkbox on render)
+    const selectAllCb = document.querySelector('input[onchange^="toggleSelectAllAttendance"]');
+    if (selectAllCb) selectAllCb.checked = false;
+
     // 使用 originalIdx 保留原始索引以便編輯
     const logsWithIdx = logs.map((log, idx) => ({ ...log, originalIdx: idx }));
     logsWithIdx.sort((a, b) => new Date(b.time) - new Date(a.time));
@@ -3339,6 +3343,14 @@ function updateAttendanceDeleteBtnState() {
     }
 }
 
+function toggleSelectAllAttendance(isChecked) {
+    const checkboxes = document.querySelectorAll('.attendance-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+    updateAttendanceDeleteBtnState();
+}
+
 function deleteAttendanceLogs() {
     const checkboxes = document.querySelectorAll('.attendance-checkbox:checked');
     if (checkboxes.length === 0) return;
@@ -3404,6 +3416,10 @@ const SCORE_ITEMS_PER_PAGE = 10;
 function renderScoreHistoryList(targetId) {
     const list = document.getElementById(targetId);
     const studentData = classesData[currentClass].students;
+
+    // 每次渲染時重置全選勾選框 (Reset Select All checkbox on render)
+    const selectAllCb = document.querySelector('input[onchange^="toggleSelectAllScores"]');
+    if (selectAllCb) selectAllCb.checked = false;
 
     // 收集所有紀錄
     let allLogs = [];
@@ -3527,6 +3543,14 @@ function updateRevokeBtnState() {
         btn.innerHTML = checked > 0 ? `<i data-lucide="undo-2" class="w-3 h-3"></i> 撤銷已選 (${checked})` : `<i data-lucide="undo-2" class="w-3 h-3"></i> 撤銷紀錄`;
         lucide.createIcons();
     }
+}
+
+function toggleSelectAllScores(isChecked) {
+    const checkboxes = document.querySelectorAll('.history-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+    updateRevokeBtnState();
 }
 
 // 修改 revokeHistory 以支援新頁面重繪
