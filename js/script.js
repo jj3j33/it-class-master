@@ -113,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = JSON.parse(e.newValue);
                 // 使用 window.applySyncData 確保重新渲染 UI
                 if (typeof window.applySyncData === 'function') {
-                    window.applySyncData(data);
+                    // Added true as second argument to prevent self-triggering storage event loop
+                    window.applySyncData(data, true);
                 }
             } catch (err) {
                 console.error("Storage sync failed:", err);
@@ -286,7 +287,7 @@ function saveData(skipPush = false) {
  * Newly added: Apply data from Cloud/External to local variables 
  * This fixes the issue where local variables would overwrite cloud data after a pull.
  */
-window.applySyncData = function (data) {
+window.applySyncData = function (data, skipSave = false) {
     if (!data) return;
 
     if (data.classesData) {
@@ -352,8 +353,10 @@ window.applySyncData = function (data) {
 
     console.log("Local variables updated from sync data.");
 
-    // Save to local storage (silent save)
-    saveData(true);
+    // Save to local storage (silent save) - Only if not coming from a storage event
+    if (!skipSave) {
+        saveData(true);
+    }
 
     // Refresh UI
     initClassSelector();
