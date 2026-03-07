@@ -28,10 +28,11 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  var dataStr = sheet.getRange("A1").getValue();
+  // Load State (Support Large Data)
+  var dataStr = loadStateLarge(sheet);
   if (!dataStr) dataStr = "{}";
   
-  var tsVal = sheet.getRange("A2").getValue();
+  var tsVal = sheet.getRange("B1").getValue(); // Save Timestamp in B1
   var ts = new Date(tsVal).getTime();
   if (isNaN(ts)) ts = 0;
   
@@ -48,7 +49,7 @@ function doGet(e) {
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  if (lock.tryLock(10000)) {
+  if (lock.tryLock(20000)) { // Increase lock timeout to 20s
     try {
       var dataStr = e.postData.contents;
       // Validate JSON
@@ -62,16 +63,21 @@ function doPost(e) {
       }
       
       var now = new Date();
-      stateSheet.getRange("A1").setValue(dataStr);
-      stateSheet.getRange("A2").setValue(now); // Save Timestamp
+      saveStateLarge(stateSheet, dataStr); // Save Chunked Data
+      stateSheet.getRange("B1").setValue(now); // Save Timestamp in B1
       
       // Export Views
       if (data.classesData) {
         updateRosterView(data.classesData);
         updateAttendanceLog(data.classesData);
         updateScoreLog(data.classesData);
+      }
+      
+      // Always update config if present (separate but part of same push)
+      if (data.scoreReasons || data.teacherTimetable || data.periodTimes) {
         updateConfigView(data);
       }
+      
       if (data.textbookLinks) {
         updateTextbookLinksView(data.textbookLinks);
       }
@@ -92,9 +98,35 @@ function doPost(e) {
   } else {
     return ContentService.createTextOutput(JSON.stringify({
       result: "error", 
-      error: "Server busy"
+      error: "Server busy - Please try again"
     })).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// Helper to save large JSON across multiple cells (Sheet cell limit is ~50k chars)
+function saveStateLarge(sheet, dataStr) {
+  sheet.getRange("A:A").clearContent(); // Clear old data
+  var chunkSize = 40000;
+  var chunks = [];
+  for (var i = 0; i < dataStr.length; i += chunkSize) {
+    chunks.push([dataStr.substring(i, i + chunkSize)]);
+  }
+  if (chunks.length > 0) {
+    sheet.getRange(1, 1, chunks.length, 1).setValues(chunks);
+  }
+}
+
+function loadStateLarge(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) return "{}";
+  // Get all values in Column A
+  var values = sheet.getRange(1, 1, lastRow, 1).getValues();
+  var fullStr = "";
+  for (var i = 0; i < values.length; i++) {
+    // Explicitly convert to string and append
+    fullStr += String(values[i][0]);
+  }
+  return fullStr.trim();
 }
 
 function updateConfigView(data) {

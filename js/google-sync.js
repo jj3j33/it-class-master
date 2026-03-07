@@ -31,22 +31,23 @@ const GoogleSync = {
         if (this.url) {
             this.startAutoSync();
 
-            // Try to pull first (New Device Scenario)
-            console.log("New URL set, attempting pull...");
+            // Try to pull first (New Device/Sync Scenario)
+            console.log("New URL set, attempting initial pull...");
 
-            // pull handles isSyncing flag, but we should ensure we wait
-            await this.pull();
+            // Modified to check if cloud already has data
+            const pullResult = await this.pull();
 
-            // If we are here, pull finished (either error or empty). 
-            // If it succeeded with data, page would have reloaded.
-            // If we have local data, we can now safely push to initialize the cloud.
-            if (Object.keys(window.classesData || {}).length > 0) {
-                console.log("Pushing local data to initialize cloud...");
-                this.push();
+            if (pullResult === "SUCCESS") {
+                console.log("Cloud data applied. Skipping initial push.");
+            } else if (pullResult === "EMPTY") {
+                // ONLY push if cloud is explicitly empty
+                if (Object.keys(window.classesData || {}).length > 0) {
+                    console.log("Cloud is empty. Initializing with local data...");
+                    this.push();
+                }
             } else {
-                console.log("No local data to push. Waiting for user input.");
+                console.log("Pull error occurred. Aborting initial push to prevent data loss.");
             }
-
         } else {
             this.stopAutoSync();
         }
@@ -108,17 +109,21 @@ const GoogleSync = {
             const response = await fetch(this.url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(bundle)
+                body: JSON.stringify(bundle),
+                redirect: 'follow',
+                mode: 'cors',
+                credentials: 'omit'
             });
 
-            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            if (!response.ok) throw new Error(`伺服器回傳錯誤 ${response.status}`);
 
             const resText = await response.text();
             let resJson;
             try {
                 resJson = JSON.parse(resText);
             } catch (e) {
-                throw new Error("Server response was not valid JSON. Response: " + resText.substring(0, 100));
+                // If it's valid JSON but wrapped in something else (rare)
+                throw new Error("伺服器回傳格式不正確 (JSON 解析失敗)");
             }
 
             if (resJson.result === 'error') throw new Error(resJson.error);
@@ -132,17 +137,17 @@ const GoogleSync = {
         } catch (e) {
             console.error("Sync Push Error:", e);
             this.updateUIStatus('error');
-            if (e.message.includes("not valid JSON")) {
-                alert("上傳失敗：伺服器回傳格式錯誤。\n原因可能是：\n1. Google Apps Script 尚未重新部署。\n2. 權限未設定為「所有人」。");
-            } else {
-                if (!this.autoSyncInterval) alert("同步失敗：" + e.message);
+
+            let msg = e.message;
+            if (msg === 'Failed to fetch') {
+                msg = "連線失敗 (Failed to fetch)。\n這可能是因為資料量過大導致 Google 伺服器回應逾時。\n請確認您已按照最新說明更新 GAS 代碼。";
             }
+            if (!this.autoSyncInterval) alert("同步失敗：" + msg);
         } finally {
             this.isSyncing = false;
             // If data became dirty during the sync (e.g. another concurrent update), trigger another push
             if (this.dirty) {
                 console.log("Data became dirty during push, re-scheduling...");
-                this.schedPush();
             }
         }
     },
@@ -150,9 +155,9 @@ const GoogleSync = {
     pull: async function () {
         if (!this.url) {
             alert('請先設定 Google Apps Script URL');
-            return;
+            return false;
         }
-        if (this.isSyncing) return;
+        if (this.isSyncing) return false;
 
         this.isSyncing = true;
         this.updateUIStatus('syncing-download');
@@ -162,29 +167,39 @@ const GoogleSync = {
             if (!response.ok) throw new Error('Network response was not ok');
 
             const raw = await response.json();
-            console.log("Pulled raw:", raw);
+            console.log("Pulled raw from cloud:", raw);
 
-            // Handle wrapped response (Support current GAS format)
             let data = raw;
-            if (raw.payload && typeof raw.payload === 'object') {
-                data = raw.payload;
+            if (raw.payload) {
+                let payloadStr = raw.payload;
+                if (typeof payloadStr === 'string' && payloadStr.length > 0) {
+                    try {
+                        data = JSON.parse(payloadStr);
+                    } catch (parseErr) {
+                        console.error("Critical: Cloud data is truncated or corrupted.");
+                        const pos = parseInt(parseErr.message.match(/\d+/)) || 0;
+                        this.updateUIStatus('error');
+                        alert(`同步失敗：雲端資料格式損毀 (位置 ${pos})。\n\n這通常是舊版同步造成的資料截斷。請執行以下操作恢復：\n1. 如果您有正確資料的分頁，請在該分頁點擊保存以覆蓋雲端。\n2. 若所有分頁皆無資料，請到試算表刪除「DB_State」分頁後重新整理。`);
+                        return "ERROR";
+                    }
+                } else {
+                    data = raw.payload;
+                }
             }
 
-            // Check if GAS returned an error object
             if (data.result === 'error' || raw.result === 'error') {
-                console.warn('GAS Server returned error:', data.error);
+                console.warn('GAS Server error:', data.error);
                 this.updateUIStatus('error');
-                return;
+                return "ERROR";
             }
 
-            // If empty object or null (first time init), treat as no data
-            if (!data || Object.keys(data).length === 0) {
-                console.log("Cloud seems empty. Sync ready.");
+            if (!data || Object.keys(data).length === 0 || (!data.classesData && !data.scoreReasons)) {
+                console.log("Cloud is truly empty.");
                 this.updateUIStatus('ready');
-                return;
+                return "EMPTY";
             }
 
-            if (data.classesData) {
+            if (data.classesData || data.scoreReasons) { // Found something meaningful
                 // Check for Date Mismatch (New Day Reset)
                 const todayStr = new Date().toDateString();
                 const cloudDate = data.lastActiveDate;
@@ -203,70 +218,35 @@ const GoogleSync = {
                     console.log("Cloud data is from today. Keeping attendance.");
                 }
 
-                // Update Global Data
-                window.classesData = data.classesData;
-                if (data.teacherTimetable) window.teacherTimetable = data.teacherTimetable;
-                if (data.periodTimes) window.periodTimes = data.periodTimes;
-                if (data.scoreReasons) window.scoreReasons = data.scoreReasons;
-                if (data.teachingResources) window.teachingResources = data.teachingResources;
-                if (data.modules && Array.isArray(data.modules)) {
-                    // Feature Sync from Cloud
-                    const validIds = new Set(window.defaultModules.map(dm => dm.id));
-                    let syncedModules = data.modules
-                        .filter(m => validIds.has(m.id))
-                        .map(m => {
-                            const latest = window.defaultModules.find(dm => dm.id === m.id);
-                            return { ...m, ...latest }; // Refresh code-defined properties
-                        });
-
-                    // Add new features added in the latest version but missing in Cloud
-                    const currentIds = new Set(syncedModules.map(m => m.id));
-                    window.defaultModules.forEach(dm => {
-                        if (!currentIds.has(dm.id)) syncedModules.push(dm);
-                    });
-                    window.modules = syncedModules;
-                }
-                if (data.textbookLinks) window.textbookLinks = data.textbookLinks; // Load Textbook Links
-
-                // Save to local storage without triggering push
-                saveData(true);
-
-                this.lastSyncTime = Date.now();
-                this.updateUIStatus('synced');
-                this.lastSyncTime = Date.now();
-                this.updateUIStatus('synced');
-
-                // Refresh UI via global functions
-                console.log("Cloud data loaded, refreshing UI...");
-                if (typeof window.initClassSelector === 'function') window.initClassSelector();
-                if (typeof window.initTimetableEditor === 'function') window.initTimetableEditor();
-                if (typeof window.updateTimeAndStatus === 'function') window.updateTimeAndStatus();
-                if (typeof window.renderTextbookGrid === 'function' && window.currentTab === 'textbook') window.renderTextbookGrid();
-
-                if (window.currentTab === 'resource-detail') {
-                    // Do not redirect if user is viewing resource detail
-                    if (typeof window.renderResources === 'function') window.renderResources();
+                // Update Global & Local State via the new injection function
+                if (typeof window.applySyncData === 'function') {
+                    window.applySyncData(data);
                 } else {
-                    // Optimized: Only refresh if window.switchTab is available and user is already beyond login
-                    if (typeof window.switchTab === 'function' && sessionStorage.getItem('isLoggedIn') === 'true') {
-                        // Pass currentTab to ensure we don't jump to dashboard unless that's where we are
-                        // If currentTab is somehow lost, default to 'dashboard' but only if really needed
-                        const target = window.currentTab || 'dashboard';
-                        window.switchTab(target);
-                    }
+                    // Fallback if script.js isn't updated
+                    window.classesData = data.classesData;
+                    if (data.teacherTimetable) window.teacherTimetable = data.teacherTimetable;
+                    if (data.periodTimes) window.periodTimes = data.periodTimes;
+                    if (data.scoreReasons) window.scoreReasons = data.scoreReasons;
+                    saveData(true);
                 }
 
-                // Optional: Show a subtle notification or just rely on the green status light
-                // alert('下載成功！'); // Removed to avoid startup annoyance
+                this.lastSyncTime = Date.now();
+                this.updateUIStatus('synced');
+                return "SUCCESS";
             } else {
-                console.warn("Received data missing classesData. Is the sheet empty?");
                 this.updateUIStatus('error');
+                return "EMPTY";
             }
 
         } catch (error) {
             console.error('Pull failed:', error);
             this.updateUIStatus('error');
-            alert('同步失敗：' + error.message + '\n請檢查網址是否正確，或權限是否設為「任何人 (Anyone)」。');
+            if (error.message.includes("Unexpected token")) {
+                alert('解析失敗：雲端資料格式錯誤。\n可能是因為試算表單一儲存格資料過長被截斷。\n請按照最新說明更新 Google Apps Script 代碼。');
+            } else {
+                alert('同步失敗：' + error.message);
+            }
+            return "ERROR";
         } finally {
             this.isSyncing = false;
         }

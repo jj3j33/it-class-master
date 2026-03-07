@@ -45,9 +45,10 @@ var modules = JSON.parse(JSON.stringify(defaultModules));
 window.modules = modules;
 let isModuleReordering = false;
 
-let currentTab = 'dashboard';
+var currentTab = 'dashboard';
 window.currentTab = currentTab;
-let currentClass = "";
+var currentClass = "";
+window.currentClass = currentClass;
 let lotteryHistory = [];
 let selectedIndices = new Set();
 let isSelectionMode = false; // 控制是否進入多選模式
@@ -59,6 +60,12 @@ let lastCheckedDateStr = new Date().toDateString();
 // Textbook Links Logic (Synced via localStorage/Google Sheets)
 var textbookLinks = [];
 window.textbookLinks = textbookLinks;
+
+var scoreReasons = {
+    positive: [],
+    negative: []
+};
+window.scoreReasons = scoreReasons;
 
 var sysSettings = { defaultCols: 6, defaultRows: 8, defaultLayoutMode: 'rtl' };
 window.sysSettings = sysSettings;
@@ -269,14 +276,15 @@ function logout() {
 // Updated saveData with logging
 function saveData(skipPush = false) {
     // CRITICAL: Propagate local updates to window globals for Sync visibility
-    if (typeof classesData !== 'undefined') window.classesData = classesData;
-    if (typeof teacherTimetable !== 'undefined') window.teacherTimetable = teacherTimetable;
-    if (typeof periodTimes !== 'undefined') window.periodTimes = periodTimes;
-    if (typeof scoreReasons !== 'undefined') window.scoreReasons = scoreReasons;
-    if (typeof teachingResources !== 'undefined') window.teachingResources = teachingResources;
-    if (typeof modules !== 'undefined') window.modules = modules;
-    if (typeof textbookLinks !== 'undefined') window.textbookLinks = textbookLinks;
-    if (typeof sysSettings !== 'undefined') window.sysSettings = sysSettings;
+    // No need to manually assign if they are already the same reference, but good for safety
+    window.classesData = classesData;
+    window.teacherTimetable = teacherTimetable;
+    window.periodTimes = periodTimes;
+    window.scoreReasons = scoreReasons;
+    window.teachingResources = teachingResources;
+    window.modules = modules;
+    window.textbookLinks = textbookLinks;
+    window.sysSettings = sysSettings;
 
     const bundle = {
         classesData: classesData,
@@ -284,8 +292,8 @@ function saveData(skipPush = false) {
         periodTimes: periodTimes,
         scoreReasons: scoreReasons,
         teachingResources: teachingResources,
-        modules: modules, // Save Modules settings
-        textbookLinks: textbookLinks, // Save Textbook Links
+        modules: modules,
+        textbookLinks: textbookLinks,
         sysSettings: sysSettings,
         currentClass: currentClass,
         lastActiveDate: new Date().toDateString()
@@ -296,13 +304,90 @@ function saveData(skipPush = false) {
 
     if (!skipPush) {
         if (typeof window.GoogleSync !== 'undefined') {
-            console.log("Triggering auto-upload...");
             window.GoogleSync.schedPush();
-        } else {
-            console.warn("GoogleSync not defined, skipping auto-upload.");
         }
     }
 }
+
+/**
+ * Newly added: Apply data from Cloud/External to local variables 
+ * This fixes the issue where local variables would overwrite cloud data after a pull.
+ */
+window.applySyncData = function (data) {
+    if (!data) return;
+
+    if (data.classesData) {
+        classesData = data.classesData;
+        window.classesData = classesData;
+    }
+    if (data.teacherTimetable) {
+        teacherTimetable = data.teacherTimetable;
+        window.teacherTimetable = teacherTimetable;
+    }
+    if (data.periodTimes) {
+        periodTimes = data.periodTimes;
+        window.periodTimes = periodTimes;
+    }
+    if (data.scoreReasons) {
+        scoreReasons = data.scoreReasons;
+        window.scoreReasons = scoreReasons;
+    }
+    if (data.teachingResources) {
+        teachingResources = data.teachingResources;
+        window.teachingResources = teachingResources;
+    }
+    if (data.modules && Array.isArray(data.modules)) {
+        // Robust Feature Sync from Cloud
+        const validIds = new Set(defaultModules.map(dm => dm.id));
+        let syncedModules = data.modules
+            .filter(m => validIds.has(m.id))
+            .map(m => {
+                const latest = defaultModules.find(dm => dm.id === m.id);
+                return { ...m, ...latest }; // Refresh code-defined properties like action, icon, title
+            });
+
+        // Add new features added in the latest version but missing in Cloud
+        const currentIds = new Set(syncedModules.map(m => m.id));
+        defaultModules.forEach(dm => {
+            if (!currentIds.has(dm.id)) syncedModules.push(dm);
+        });
+        modules = syncedModules;
+        window.modules = modules;
+    }
+    if (data.textbookLinks) {
+        textbookLinks = data.textbookLinks;
+        window.textbookLinks = textbookLinks;
+    }
+    if (data.sysSettings) {
+        sysSettings = data.sysSettings;
+        window.sysSettings = sysSettings;
+    }
+    if (data.currentClass && classesData[data.currentClass]) {
+        currentClass = data.currentClass;
+    }
+
+    console.log("Local variables updated from sync data.");
+
+    // Save to local storage (silent save)
+    saveData(true);
+
+    // Refresh UI
+    initClassSelector();
+    updateDashboardStats();
+    initTimetableEditor();
+    renderModules();
+    updateTimeAndStatus();
+
+    // Page specific refresh
+    if (window.currentTab === 'seating') renderSeating();
+    if (window.currentTab === 'records') renderRecordsPage();
+    if (window.currentTab === 'leaderboard') renderLeaderboard();
+    if (window.currentTab === 'textbook') renderTextbookGrid();
+    if (window.currentTab === 'calendar') renderCalendar();
+
+    // Ensure settings UI is updated
+    if (typeof renderReasonSettings === 'function') renderReasonSettings();
+};
 
 function switchTab(tabId) {
     currentTab = tabId;
@@ -1313,11 +1398,6 @@ function toggleSelectionMode(forceValue) {
 
 // --- 分數理由與模態視窗邏輯 ---
 let pendingScoreAction = null;
-
-let scoreReasons = {
-    positive: [],
-    negative: []
-};
 
 function openScoreModal(targets, delta, isBatch = false) {
     pendingScoreAction = { targets, delta, isBatch };
