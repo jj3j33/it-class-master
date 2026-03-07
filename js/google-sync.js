@@ -55,8 +55,13 @@ const GoogleSync = {
 
     startAutoSync: function () {
         if (this.autoSyncInterval) clearInterval(this.autoSyncInterval);
-        this.autoSyncInterval = null;
-        console.log("Auto-sync: Upload Only Mode Active.");
+        // 每 5 分鐘檢查一次雲端更新 (Cross-device Sync)
+        this.autoSyncInterval = setInterval(() => {
+            if (!this.dirty) { // 如果本地沒改變，才去檢查雲端
+                this.checkUpdates();
+            }
+        }, 300000);
+        console.log("Auto-sync: Check for updates every 5m.");
     },
 
     stopAutoSync: function () {
@@ -82,8 +87,20 @@ const GoogleSync = {
     },
 
     checkUpdates: async function () {
-        // Disabled
-        return;
+        if (!this.url || this.isSyncing) return;
+
+        try {
+            const response = await fetch(this.url + "?action=check");
+            if (!response.ok) return;
+            const data = await response.json();
+
+            if (data.timestamp && data.timestamp > this.lastServerTimestamp) {
+                console.log("Cloud update detected! Pulling new version...");
+                this.pull();
+            }
+        } catch (e) {
+            console.warn("Check updates failed:", e);
+        }
     },
 
     push: async function () {
@@ -167,6 +184,7 @@ const GoogleSync = {
             if (!response.ok) throw new Error('Network response was not ok');
 
             const raw = await response.json();
+            if (raw.timestamp) this.lastServerTimestamp = raw.timestamp;
             console.log("Pulled raw from cloud:", raw);
 
             let data = raw;

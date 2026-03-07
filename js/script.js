@@ -85,68 +85,31 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("App initializing...");
     const saved = localStorage.getItem('it-class-master-v4');
     if (saved) {
-        const parsed = JSON.parse(saved);
-        classesData = parsed.classesData || classesData;
-        teacherTimetable = parsed.teacherTimetable || teacherTimetable;
-        periodTimes = parsed.periodTimes || periodTimes;
-        scoreReasons = parsed.scoreReasons || scoreReasons;
-        teachingResources = parsed.teachingResources || teachingResources;
-        sysSettings = parsed.sysSettings || sysSettings;
-
-        // Ensure globals match loaded data
-        window.classesData = classesData;
-        window.teacherTimetable = teacherTimetable;
-        window.periodTimes = periodTimes;
-        window.scoreReasons = scoreReasons;
-        window.teachingResources = teachingResources;
-        window.sysSettings = sysSettings;
-
-        // Robust Feature Sync: Only keep saved modules that still exist in defaultModules, and add new ones.
-        if (parsed.modules && Array.isArray(parsed.modules) && parsed.modules.length > 0) {
-            const validIds = new Set(defaultModules.map(dm => dm.id));
-            // Keep preserved order for valid ones, while refreshing definitions from defaultModules
-            let syncedModules = parsed.modules
-                .filter(m => validIds.has(m.id))
-                .map(m => {
-                    const latest = defaultModules.find(dm => dm.id === m.id);
-                    return { ...m, ...latest }; // Update props like action, title, color from code
-                });
-
-            // Add any new default modules that aren't in the saved list yet
-            const currentIds = new Set(syncedModules.map(m => m.id));
-            defaultModules.forEach(dm => {
-                if (!currentIds.has(dm.id)) syncedModules.push(dm);
-            });
-            modules = syncedModules;
-        } else {
-            modules = JSON.parse(JSON.stringify(defaultModules));
-        }
-
-        if (parsed.textbookLinks) {
-            textbookLinks = parsed.textbookLinks;
-        }
-
-        if (parsed.currentClass && classesData[parsed.currentClass]) {
-            currentClass = parsed.currentClass;
-        } else {
-            const keys = Object.keys(classesData);
-            if (keys.length > 0) currentClass = keys[0];
-        }
-
-        // New day detection
-        const todayStr = new Date().toDateString();
-        if (parsed.lastActiveDate !== todayStr) {
-            console.log('New day detected, resetting attendance...');
-            Object.values(classesData).forEach(cls => {
-                if (cls.students) {
-                    Object.values(cls.students).forEach(s => {
-                        s.status = 'present';
-                        s.note = '';
-                    });
-                }
-            });
+        try {
+            const parsed = JSON.parse(saved);
+            // Re-use the robust apply logic
+            window.applySyncData(parsed);
+        } catch (e) {
+            console.error("Failed to load local storage:", e);
         }
     }
+
+    // 新增：多分頁同步監聽 (Same-device Multi-tab Sync)
+    window.addEventListener('storage', (e) => {
+        // 當其他分頁儲存資料時，此分頁會收到通知並更新
+        if (e.key === 'it-class-master-v4' && e.newValue) {
+            console.log("Detect change from another tab, syncing...");
+            try {
+                const data = JSON.parse(e.newValue);
+                // 使用 window.applySyncData 確保重新渲染 UI
+                if (typeof window.applySyncData === 'function') {
+                    window.applySyncData(data);
+                }
+            } catch (err) {
+                console.error("Storage sync failed:", err);
+            }
+        }
+    });
 
 
 
@@ -364,6 +327,11 @@ window.applySyncData = function (data) {
     }
     if (data.currentClass && classesData[data.currentClass]) {
         currentClass = data.currentClass;
+        window.currentClass = currentClass;
+    } else if (Object.keys(classesData).length > 0 && (!currentClass || !classesData[currentClass])) {
+        // Fallback: 如果目前沒選班級或選到的班級不存在，預設選第一個
+        currentClass = Object.keys(classesData).sort()[0];
+        window.currentClass = currentClass;
     }
 
     console.log("Local variables updated from sync data.");
@@ -386,6 +354,7 @@ window.applySyncData = function (data) {
     if (window.currentTab === 'calendar') renderCalendar();
 
     // Ensure settings UI is updated
+    if (window.currentTab === 'settings') renderSettingsPage();
     if (typeof renderReasonSettings === 'function') renderReasonSettings();
 };
 
@@ -1374,11 +1343,14 @@ function toggleSelectAll(isChecked) {
     const data = classesData[currentClass];
     selectedIndices.clear();
     if (isChecked) {
+        isSelectionMode = true; // 強制進入多選模式以顯示勾選框
         Object.keys(data.students).forEach(key => {
             if (data.students[key].status !== 'absent') {
                 selectedIndices.add(parseInt(key));
             }
         });
+    } else {
+        isSelectionMode = false; // 取消全選時，關閉多選模式 (隱藏勾選框)
     }
     renderSeating();
 }
