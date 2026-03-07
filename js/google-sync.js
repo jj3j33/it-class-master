@@ -120,6 +120,8 @@ const GoogleSync = {
                 teachingResources: window.teachingResources || (typeof teachingResources !== 'undefined' ? teachingResources : []),
                 modules: window.modules || (typeof modules !== 'undefined' ? modules : []),
                 textbookLinks: window.textbookLinks || (typeof textbookLinks !== 'undefined' ? textbookLinks : []),
+                sysSettings: window.sysSettings || (typeof sysSettings !== 'undefined' ? sysSettings : {}),
+                currentClass: window.currentClass || (typeof currentClass !== 'undefined' ? currentClass : ""),
                 lastActiveDate: new Date().toDateString()
             };
 
