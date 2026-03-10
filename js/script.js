@@ -852,7 +852,36 @@ function reflowClassLayout(cls, forceReflow = false) {
     const data = classesData[cls];
     if (!data) return;
 
-    if (data.config.isManualLayout && !forceReflow) return;
+    if (data.config.isManualLayout && !forceReflow) {
+        // 特別處理：當手動佈局模式開啟時，若有名單變更（如：新增學生），
+        // 我們不重排所有人，但必須把帶有 temp_ 標記或非數字索引的新學生放入第一個可用的空位
+        const students = data.students;
+        const cols = data.config.cols;
+        const rows = data.config.rows;
+        const maxSlots = cols * rows;
+        const unavailableSeats = data.config.unavailableSeats || [];
+
+        const orphanKeys = Object.keys(students).filter(k => {
+            const val = parseInt(k);
+            return isNaN(val) || val.toString() !== k || val < 0 || val >= maxSlots;
+        });
+
+        if (orphanKeys.length > 0) {
+            let searchIndex = 0;
+            orphanKeys.forEach(ok => {
+                while (searchIndex < maxSlots && (students[searchIndex] !== undefined || unavailableSeats.includes(searchIndex))) {
+                    searchIndex++;
+                }
+                if (searchIndex < maxSlots) {
+                    students[searchIndex] = students[ok];
+                    delete students[ok];
+                    searchIndex++;
+                }
+            });
+            saveData();
+        }
+        return;
+    }
 
     const cols = data.config.cols;
     const rows = data.config.rows;
