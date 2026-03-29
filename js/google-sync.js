@@ -11,6 +11,7 @@ const GoogleSync = {
     lastServerTimestamp: 0, // Track server version
     dirty: false,
     debouncer: null,
+    hasPullAttempted: false, // Prevent pushing before the first pull is done
 
     init: function () {
         if (this.url) {
@@ -105,6 +106,26 @@ const GoogleSync = {
 
     push: async function () {
         if (!this.url || this.isSyncing) return;
+
+        // CRITICAL PROTECTION: Never push before we've at least tried to pull once.
+        // This prevents a fresh/empty device from overwriting a populated cloud.
+        if (!this.hasPullAttempted) {
+            console.warn("Push blocked: Initial pull has not completed. Retrying pull...");
+            this.pull();
+            return;
+        }
+
+        const currentClassesData = window.classesData || (typeof classesData !== 'undefined' ? classesData : {});
+        const hasLocalData = Object.keys(currentClassesData).length > 0;
+
+        // EXTRA PROTECTION: If local is empty but we know the server has data (from a previous pull), 
+        // DO NOT push unless explicitly intended.
+        if (!hasLocalData && this.lastServerTimestamp > 0) {
+            console.error("Push blocked: Attempting to overwrite cloud data with empty local state.");
+            this.updateUIStatus('error');
+            return;
+        }
+
         this.isSyncing = true;
         this.dirty = false; // Reset dirty flag now. If changes occur during fetch, it will be set to true again.
         this.updateUIStatus('syncing-upload');
@@ -215,6 +236,7 @@ const GoogleSync = {
 
             if (!data || Object.keys(data).length === 0 || (!data.classesData && !data.scoreReasons)) {
                 console.log("Cloud is truly empty.");
+                this.hasPullAttempted = true; // Still marked as attempted
                 this.updateUIStatus('ready');
                 return "EMPTY";
             }
@@ -251,6 +273,7 @@ const GoogleSync = {
                 }
 
                 this.lastSyncTime = Date.now();
+                this.hasPullAttempted = true;
                 this.updateUIStatus('synced');
                 return "SUCCESS";
             } else {
