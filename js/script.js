@@ -1,4 +1,4 @@
-﻿// --- 核心資料 ---
+// --- 核心資料 ---
 var classesData = {};
 // window.classesData will be assigned after declaration
 window.classesData = classesData; // Explicit global exposure
@@ -5498,6 +5498,39 @@ function initSortAlgo(algo = 'selection') {
         btnIns.className = 'px-4 py-2 rounded-lg font-bold shadow-lg transition-all ' + (algo === 'insertion' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300');
     }
 
+    // 更新互動測驗顯示名稱
+    const qNameEl = document.getElementById('quizAlgoName');
+    if (qNameEl) {
+        qNameEl.innerText = algo === 'selection' ? '選擇排序法 (Selection Sort)' : '插入排序法 (Insertion Sort)';
+    }
+    // 如果測驗區目前是顯示狀態，清空輸入並重新計算正確答案
+    const quizResultMsg = document.getElementById('quizResultMsg');
+    const quizContainer = document.getElementById('quizContainer');
+    const quizInputs = document.querySelectorAll('.quiz-input');
+    
+    if (quizContainer && !quizContainer.classList.contains('hidden') && quizInputs.length > 0) {
+        // 更新測驗使用的演算法與正確答案
+        quizStateData.algo = algo;
+        quizStateData.correctRounds = computeCorrectSortRounds(algo, [...quizStateData.initialArray]);
+        
+        // 清空所有填寫內容並還原基礎樣式
+        quizInputs.forEach(input => {
+            input.value = '';
+            const isSorted = input.dataset.sorted === 'true';
+            input.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+            if (isSorted) {
+                input.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
+            } else {
+                input.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
+            }
+        });
+
+        if (quizResultMsg) {
+            quizResultMsg.innerHTML = '<div class="flex items-center gap-2 alert-pulse"><i data-lucide="refresh-cw" class="text-sky-400 w-5 h-5 animate-spin"></i><span class="text-sky-400 text-sm">測驗題目維持，但演算法邏輯已變更，請重新填寫正確答案。</span></div>';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
     renderSortState();
 }
 
@@ -5562,19 +5595,18 @@ function generateSelectionSortStates() {
             comparingIndices: [minIdx],
             minIndex: minIdx,
             roundIndex: currentRound,
-            explanation: explanationFound + (minIdx !== i ? `<br>準備將其與未排序區的第一個元素（${arr[i]}）交換。` : `<br>它已經在正確的位置。`)
+            explanation: explanationFound + (minIdx !== i ? `<br>準備將其移出並插入到已排序數列的結尾。` : `<br>它已經在正確的位置。`)
         });
 
         if (minIdx !== i) {
-            let temp = arr[i];
-            arr[i] = arr[minIdx];
-            arr[minIdx] = temp;
+            let val = arr.splice(minIdx, 1)[0];
+            arr.splice(i, 0, val);
         }
 
         states.push({
             array: [...arr],
             sortedEndIndex: i, // array[i] is now sorted
-            comparingIndices: [i, minIdx],
+            comparingIndices: [i],
             minIndex: -1,
             roundIndex: currentRound,
             explanation: `<b>加入已排序數列</b><br>已將 ${arr[i]} 加到已排序數列的結尾。`
@@ -5756,13 +5788,19 @@ function renderSortState() {
     if (!container) return;
 
     const labelsContainer = document.getElementById('sortLabelsContainer');
-    if (labelsContainer && labelsContainer.children.length !== state.array.length) {
-        labelsContainer.innerHTML = '';
-        state.array.forEach((_, idx) => {
-            const labelNode = document.createElement('div');
-            labelNode.className = 'w-16 md:w-20 text-center text-slate-400 text-[13px] font-bold tracking-wider';
-            labelNode.innerText = `第 ${idx + 1} 個`;
-            labelsContainer.appendChild(labelNode);
+    if (labelsContainer) {
+        if (labelsContainer.children.length !== state.array.length) {
+            labelsContainer.innerHTML = '';
+            state.array.forEach(() => {
+                const labelNode = document.createElement('div');
+                labelNode.className = 'w-16 md:w-20 text-center text-[11px] font-bold tracking-tight py-1 rounded-md transition-colors duration-300';
+                labelsContainer.appendChild(labelNode);
+            });
+        }
+        Array.from(labelsContainer.children).forEach((node, idx) => {
+            const isSorted = idx <= state.sortedEndIndex;
+            node.innerText = isSorted ? '已排序' : '未排序';
+            node.className = `w-16 md:w-20 text-center text-[11px] font-bold tracking-tight py-1 rounded-md transition-colors duration-300 ${isSorted ? 'text-emerald-400 bg-emerald-400/10 shadow-sm' : 'text-slate-500'}`;
         });
     }
 
@@ -6022,9 +6060,18 @@ function generateSortQuiz() {
         rowDiv.appendChild(label);
 
         const inputsWrapper = document.createElement('div');
-        inputsWrapper.className = 'flex gap-2 flex-wrap flex-1 justify-center md:justify-start';
+        inputsWrapper.className = 'flex gap-3 flex-wrap flex-1 justify-center md:justify-start';
 
         for (let i = 0; i < 5; i++) {
+            const isSorted = i <= rIdx;
+            const fieldWrapper = document.createElement('div');
+            fieldWrapper.className = 'flex flex-col items-center gap-1';
+
+            const hint = document.createElement('span');
+            hint.className = `text-[9px] font-bold tracking-tight px-1 rounded ${isSorted ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 bg-slate-700/30'}`;
+            hint.innerText = isSorted ? '已排序' : '未排序';
+            fieldWrapper.appendChild(hint);
+
             const input = document.createElement('input');
             input.type = 'text';
             input.inputMode = 'numeric';
@@ -6032,7 +6079,8 @@ function generateSortQuiz() {
             input.maxLength = 2;
             input.dataset.row = rIdx;
             input.dataset.col = i;
-            input.className = 'quiz-input w-12 h-12 md:w-14 md:h-14 font-mono font-bold text-lg md:text-xl text-center bg-slate-900 border-2 border-slate-600 rounded-lg text-white placeholder-slate-600 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all';
+            input.dataset.sorted = isSorted;
+            input.className = `quiz-input w-12 h-12 md:w-14 md:h-14 font-mono font-bold text-lg md:text-xl text-center rounded-lg text-white placeholder-slate-600 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all ${isSorted ? 'bg-emerald-900/20 border-2 border-emerald-500/40' : 'bg-slate-900 border-2 border-slate-600'}`;
             input.placeholder = '?';
 
             // disable mouse wheel
@@ -6040,11 +6088,17 @@ function generateSortQuiz() {
 
             // clean styling on type
             input.addEventListener('input', (e) => {
-                e.target.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
-                e.target.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
+                const sorted = e.target.dataset.sorted === 'true';
+                e.target.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'bg-slate-900', 'border-emerald-500/40', 'bg-emerald-900/20', 'border-slate-600');
+                if (sorted) {
+                    e.target.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
+                } else {
+                    e.target.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
+                }
             });
 
-            inputsWrapper.appendChild(input);
+            fieldWrapper.appendChild(input);
+            inputsWrapper.appendChild(fieldWrapper);
         }
 
         rowDiv.appendChild(inputsWrapper);
@@ -6072,9 +6126,8 @@ function computeCorrectSortRounds(algo, arr) {
                 }
             }
             if (minIdx !== i) {
-                let temp = arr[i];
-                arr[i] = arr[minIdx];
-                arr[minIdx] = temp;
+                let val = arr.splice(minIdx, 1)[0];
+                arr.splice(i, 0, val);
             }
             rounds.push([...arr]);
         }
@@ -6118,11 +6171,16 @@ function verifySortQuiz() {
         const cIdx = parseInt(input.dataset.col);
         const correctVal = quizStateData.correctRounds[rIdx][cIdx];
         const userValStr = input.value.trim();
+        const isSorted = input.dataset.sorted === 'true';
 
-        input.classList.remove('border-slate-600', 'bg-slate-900', 'text-white', 'border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+        input.classList.remove('border-slate-600', 'bg-slate-900', 'text-white', 'border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'bg-emerald-900/20', 'border-emerald-500/40');
 
         if (userValStr === '') {
-            input.classList.add('border-slate-600', 'bg-slate-900', 'text-white');
+            if (isSorted) {
+                input.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
+            } else {
+                input.classList.add('border-slate-600', 'bg-slate-900', 'text-white');
+            }
         } else {
             const userVal = parseInt(userValStr);
             if (userVal === correctVal) {
