@@ -6195,13 +6195,57 @@ function verifySortQuiz() {
     if (!anyFilled) {
         msgEl.innerHTML = '<i data-lucide="info" class="text-sky-500 w-6 h-6 shrink-0"></i><span class="text-sky-400">目前還沒有填寫任何答案喔！請先填入數字。</span>';
     } else if (allCorrect && allFilled) {
+        playQuizSound(true);
         msgEl.innerHTML = '<i data-lucide="check-circle-2" class="text-emerald-500 w-6 h-6 shrink-0"></i><span class="text-emerald-400">完全正確！你已經掌握這個演算法了！</span>';
     } else if (allCorrect && !allFilled) {
+        playQuizSound(true);
         msgEl.innerHTML = '<i data-lucide="check-circle-2" class="text-emerald-500 w-6 h-6 shrink-0"></i><span class="text-emerald-400">目前填寫的空格都是正確的，繼續加油把剩下的完成吧！</span>';
     } else {
+        playQuizSound(false);
         msgEl.innerHTML = '<i data-lucide="x-circle" class="text-rose-500 w-6 h-6 shrink-0"></i><span class="text-rose-400">哎呀有部分錯誤，請檢查紅框欄位並重新確認規則。</span>';
     }
     if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * 播放測驗音效
+ * @param {boolean} isSuccess 是否為正確/成功音效
+ */
+function playQuizSound(isSuccess) {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (isSuccess) {
+            // 答對：清脆的高音 (Ding)
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.4);
+        } else {
+            // 答錯：低沉的鋸齒波 (Buzz)
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+            
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        }
+    } catch (e) {
+        console.error('Web Audio API error:', e);
+    }
 }
 
 window.generateSortQuiz = generateSortQuiz;
