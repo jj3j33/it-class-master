@@ -5513,16 +5513,11 @@ function initSortAlgo(algo = 'selection') {
         quizStateData.algo = algo;
         quizStateData.correctRounds = computeCorrectSortRounds(algo, [...quizStateData.initialArray]);
         
-        // 清空所有填寫內容並還原基礎樣式
+        // 清空所有填寫內容並還原統一的基礎樣式
         quizInputs.forEach(input => {
             input.value = '';
-            const isSorted = input.dataset.sorted === 'true';
-            input.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
-            if (isSorted) {
-                input.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
-            } else {
-                input.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
-            }
+            input.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'bg-emerald-900/20', 'border-emerald-500/40');
+            input.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
         });
 
         if (quizResultMsg) {
@@ -5588,16 +5583,9 @@ function generateSelectionSortStates() {
             }
         }
 
-        let explanationFound = `<b>完成第 ${currentRound} 回合尋找</b><br>在未排序資料中找到最小的元素是 ${arr[minIdx]}。`;
-        states.push({
-            array: [...arr],
-            sortedEndIndex: i - 1,
-            comparingIndices: [minIdx],
-            minIndex: minIdx,
-            roundIndex: currentRound,
-            explanation: explanationFound + (minIdx !== i ? `<br>準備將其移出並插入到已排序數列的結尾。` : `<br>它已經在正確的位置。`)
-        });
-
+        // 合併「找到」與「加入」步驟，確保音效、移動與顏色同步
+        let explanationFound = `<b>第 ${currentRound} 回合完成</b><br>在未排序資料中找到最小的元素是 ${arr[minIdx]}。`;
+        
         if (minIdx !== i) {
             let val = arr.splice(minIdx, 1)[0];
             arr.splice(i, 0, val);
@@ -5605,11 +5593,11 @@ function generateSelectionSortStates() {
 
         states.push({
             array: [...arr],
-            sortedEndIndex: i, // array[i] is now sorted
-            comparingIndices: [i],
+            sortedEndIndex: i, // array[i] 現在是已排序
+            comparingIndices: [], // 清空比較索引，讓綠色正確顯示
             minIndex: -1,
             roundIndex: currentRound,
-            explanation: `<b>加入已排序數列</b><br>已將 ${arr[i]} 加到已排序數列的結尾。`
+            explanation: explanationFound + `<br>已將其移入已排序數列的結尾。`
         });
     }
 
@@ -5784,6 +5772,18 @@ function renderSortState() {
         }
     }
 
+    const keywords = ['回合完成', '完成一次插入', '移入已排序', '加到已排序數列中的第一項'];
+    const isSuccessStep = state.explanation && keywords.some(k => state.explanation.includes(k));
+    const isFinishedStep = state.explanation && state.explanation.includes('排序完成');
+
+    if (state.explanation) {
+        if (isFinishedStep) {
+            playCongratsSound();
+        } else if (isSuccessStep) {
+            playStepSound();
+        }
+    }
+
     const container = document.getElementById('sortArrayContainer');
     if (!container) return;
 
@@ -5856,7 +5856,10 @@ function renderSortState() {
 
         const box = document.createElement('div');
         box.className = `w-full h-full ${bgColor} border-2 ${borderColor} rounded-t-lg shadow-lg flex items-end justify-center pb-2 transition-colors duration-300`;
-        box.innerHTML = `<span class="font-bold text-xl md:text-2xl ${textColor} drop-shadow transition-colors duration-300">${val}</span>`;
+        const valSpan = document.createElement('span');
+        valSpan.className = `font-bold text-xl md:text-2xl ${textColor} drop-shadow transition-colors duration-300`;
+        valSpan.innerText = val;
+        box.appendChild(valSpan);
 
         blk.appendChild(box);
         wrapper.appendChild(blk);
@@ -6080,7 +6083,8 @@ function generateSortQuiz() {
             input.dataset.row = rIdx;
             input.dataset.col = i;
             input.dataset.sorted = isSorted;
-            input.className = `quiz-input w-12 h-12 md:w-14 md:h-14 font-mono font-bold text-lg md:text-xl text-center rounded-lg text-white placeholder-slate-600 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all ${isSorted ? 'bg-emerald-900/20 border-2 border-emerald-500/40' : 'bg-slate-900 border-2 border-slate-600'}`;
+            // 所有格子初始樣式一致，不再預設綠色背景
+            input.className = 'quiz-input w-12 h-12 md:w-14 md:h-14 font-mono font-bold text-lg md:text-xl text-center rounded-lg text-white bg-slate-900 border-2 border-slate-600 placeholder-slate-600 focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all';
             input.placeholder = '?';
 
             // disable mouse wheel
@@ -6088,13 +6092,8 @@ function generateSortQuiz() {
 
             // clean styling on type
             input.addEventListener('input', (e) => {
-                const sorted = e.target.dataset.sorted === 'true';
                 e.target.classList.remove('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'bg-slate-900', 'border-emerald-500/40', 'bg-emerald-900/20', 'border-slate-600');
-                if (sorted) {
-                    e.target.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
-                } else {
-                    e.target.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
-                }
+                e.target.classList.add('bg-slate-900', 'border-slate-600', 'text-white');
             });
 
             fieldWrapper.appendChild(input);
@@ -6171,16 +6170,11 @@ function verifySortQuiz() {
         const cIdx = parseInt(input.dataset.col);
         const correctVal = quizStateData.correctRounds[rIdx][cIdx];
         const userValStr = input.value.trim();
-        const isSorted = input.dataset.sorted === 'true';
 
         input.classList.remove('border-slate-600', 'bg-slate-900', 'text-white', 'border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'bg-emerald-900/20', 'border-emerald-500/40');
 
         if (userValStr === '') {
-            if (isSorted) {
-                input.classList.add('bg-emerald-900/20', 'border-emerald-500/40', 'text-white');
-            } else {
-                input.classList.add('border-slate-600', 'bg-slate-900', 'text-white');
-            }
+            input.classList.add('border-slate-600', 'bg-slate-900', 'text-white');
         } else {
             const userVal = parseInt(userValStr);
             if (userVal === correctVal) {
@@ -6250,4 +6244,76 @@ function playQuizSound(isSuccess) {
 
 window.generateSortQuiz = generateSortQuiz;
 window.verifySortQuiz = verifySortQuiz;
+
+let globalAudioCtx = null;
+function getAudioCtx() {
+    if (!globalAudioCtx) {
+        globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (globalAudioCtx.state === 'suspended') {
+        globalAudioCtx.resume();
+    }
+    return globalAudioCtx;
+}
+
+/**
+ * 播放恭喜音效 (琶音)
+ */
+function playCongratsSound() {
+    try {
+        const audioCtx = getAudioCtx();
+        const now = audioCtx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.1);
+            gain.gain.setValueAtTime(0, now + i * 0.1);
+            gain.gain.linearRampToValueAtTime(0.1, now + i * 0.1 + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.4);
+            osc.start(now + i * 0.1);
+            osc.stop(now + i * 0.1 + 0.4);
+        });
+    } catch (e) {}
+}
+
+/**
+ * 播放輕快的步驟完成音效 (雙音 叮咚!)
+ */
+function playStepSound() {
+    try {
+        const audioCtx = getAudioCtx();
+        const now = audioCtx.currentTime;
+        const baseVol = 0.05;
+
+        // 第一聲：叮 (低一點)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(660, now); 
+        gain1.gain.setValueAtTime(baseVol, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc1.start(now);
+        osc1.stop(now + 0.1);
+
+        // 第二聲：咚 (高一點)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880, now + 0.08); 
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.setValueAtTime(baseVol * 0.8, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.2);
+    } catch (e) {}
+}
+
 
