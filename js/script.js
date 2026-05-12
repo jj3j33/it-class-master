@@ -1890,6 +1890,39 @@ function updateLotteryHistory() {
     }).join('');
 }
 
+/**
+ * 取得公平抽籤池：排除掉已抽過的學生，直到全員都抽過一次後才重設。
+ * @param {Array} validIndices - 目前在席學生的索引清單
+ * @param {Array} history - 抽籤歷史紀錄
+ * @returns {Array} 篩選後的抽籤池
+ */
+function getFairLotteryPool(validIndices, history) {
+    if (!validIndices || validIndices.length === 0) return [];
+    
+    const data = classesData[currentClass];
+    if (!data) return validIndices;
+
+    // 取得歷史紀錄中的座號 (Set 加速查詢)
+    const pickedSeatNos = new Set();
+    history.forEach(h => {
+        if (h && h.seatNo) pickedSeatNos.add(h.seatNo);
+    });
+
+    // 篩選出還沒被抽過的學生
+    let pool = validIndices.filter(idx => {
+        const student = data.students[idx];
+        return student && !pickedSeatNos.has(student.seatNo);
+    });
+
+    // 如果所有人都抽過了，則自動重設 (回傳所有在席學生)
+    if (pool.length === 0) {
+        console.log("全員已抽完，抽籤池重置。");
+        return validIndices;
+    }
+    
+    return pool;
+}
+
 function startLottery() {
     // 限制只在 Dashboard 運作 (或確保元素存在)
     const quickActions = document.getElementById('quickDrawActions');
@@ -1925,8 +1958,9 @@ function startLottery() {
         SoundFX.playTick();
 
         if (++c > 20) {
-            // 結束抽籤
-            const finalIdx = validIndices[Math.floor(Math.random() * validIndices.length)];
+            // 結束抽籤：使用公平抽籤池
+            const fairPool = getFairLotteryPool(validIndices, lotteryHistory);
+            const finalIdx = fairPool[Math.floor(Math.random() * fairPool.length)];
             const finalR = allStudents[finalIdx];
             // Format text
             const text = `${finalR.seatNo} ${finalR.name}`;
@@ -2051,7 +2085,8 @@ function startSlotMachine() {
         return;
     }
 
-    const randomIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+    const fairPool = getFairLotteryPool(validIndices, lotteryHistory);
+    const randomIndex = fairPool[Math.floor(Math.random() * fairPool.length)];
     const winner = allStudents[randomIndex];
     lastWinnerIndex = randomIndex;
 
